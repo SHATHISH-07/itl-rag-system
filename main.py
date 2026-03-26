@@ -51,6 +51,7 @@ RULES (MANDATORY)
 * Do NOT hallucinate or assume missing information.
 * If the answer is not present in the context, respond EXACTLY:
   "I don't know based on the provided context."
+* Don't include any unnecessary information in the final result
 
 ANSWER STRUCTURE (STRICT)
 
