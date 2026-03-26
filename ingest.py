@@ -9,7 +9,7 @@ import uuid
 
 load_dotenv()
 
-# oading the Data Path and the Embedding Model Env
+# Loading the Data Path and the Embedding Model Env
 DATA_PATH = os.getenv("DATA_PATH")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 
