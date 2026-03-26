@@ -5,7 +5,7 @@ from groq import Groq
 import os
 from dotenv import load_dotenv
 import re
-from utils import format_score
+from utils import format_score, preprocess_query
 
 # env loading
 load_dotenv()
@@ -111,7 +111,10 @@ def home():
 @app.post("/query")
 def query_rag(request: QueryRequest):
     query = request.query
-    results = retrieve(query)
+
+    preprocessed_query = preprocess_query(query)
+
+    results = retrieve(preprocessed_query)
 
     if not results:
         return{
