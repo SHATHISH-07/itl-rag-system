@@ -55,7 +55,7 @@ RULES (MANDATORY)
 ANSWER STRUCTURE (STRICT)
 
 * Organize your answer clearly using HTML tags:
-  * <h2> for main headings (include emojis)
+  * <h2> for main headings (include relavent emojis)
   * <h3> for sub-headings
   * <p> for paragraphs / explanations
   * <ul><li> for bullet points
