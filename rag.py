@@ -34,22 +34,37 @@ def retrieve(query):
     k = extract_k(query)
     query_vector = model.encode([query])[0]
 
-    results = qdrant_client.query_points(
-        collection_name="test_collection",
-        query=query_vector.tolist(),
-        limit=k
-    )
+    all_results = []
 
-    output = []
-    for res in results.points:
-        score = res.score 
-        if score < 0.5:   
-            continue
+    collections = qdrant_client.get_collections().collections
 
-        payload = res.payload.copy()  if res.payload else {}
-        payload["score"] = float(score)
-        output.append(payload)
+    if not collections:
+        return []
 
-    output = sorted(output, key=lambda x: x["score"], reverse=True)
+    for col in collections:
+        results = qdrant_client.query_points(
+            collection_name=col.name,
+            query=query_vector.tolist(),
+            limit=k * 3  
+        )
 
-    return output
+        for res in results.points:
+            if not res.payload:
+                continue
+
+            payload = dict(res.payload)
+
+            source = payload.get("source") or col.name
+            score = float(res.score)
+
+            if score < 0.3:
+                continue
+
+            payload["source"] = source
+            payload["score"] = score
+
+            all_results.append(payload)
+
+    all_results = sorted(all_results, key=lambda x: x["score"], reverse=True)
+
+    return all_results[:k]
