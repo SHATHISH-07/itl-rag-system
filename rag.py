@@ -6,8 +6,10 @@ from db.qdrant_db import qdrant_client
 
 load_dotenv()
 
+#Loading the Embedding Model from the Env
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 
+# Setting up the embedding model
 model = SentenceTransformer(EMBEDDING_MODEL)
 
 # Extracting the K value from the user query
@@ -30,6 +32,7 @@ def extract_k(query):
 
     return 3 
 
+# Top K chunk Retrive function
 def retrieve(query):
     k = extract_k(query)
     query_vector = model.encode([query])[0]

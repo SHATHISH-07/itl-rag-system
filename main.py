@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 import re
 from utils import format_score, preprocess_query
 
-# env loading
 load_dotenv()
+
+# Loading the Groq Api Key and the LLM model from the Env
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 LLM_MODEL = os.getenv("LLM_MODEL")
 

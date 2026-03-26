@@ -29,7 +29,7 @@ def chunk_text(text, chunk_size=250, overlap=50):
 
     return chunks
 
-
+# Formating the calculated score to percentage
 def format_score(score):
     percentage = round(score * 100)
 
@@ -44,9 +44,11 @@ def format_score(score):
 
     return f"{percentage}% - {label}"
 
+# Query Preprocessing
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
+# Query Preprocessing Function
 def preprocess_query(query: str, remove_stopwords: bool = True) -> str:
     """
     Preprocess the input query for better retrieval.

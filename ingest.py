@@ -1,24 +1,26 @@
 import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
+from db.qdrant_db import qdrant_client
+from qdrant_client.http.models import VectorParams, Distance
 from utils import chunk_text
 from db.qdrant_db import qdrant_client
 import uuid
 
 load_dotenv()
 
+# oading the Data Path and the Embedding Model Env
 DATA_PATH = os.getenv("DATA_PATH")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 
-
+# Embedding Model Setup
 model = SentenceTransformer(EMBEDDING_MODEL)
 
-from db.qdrant_db import qdrant_client
-from qdrant_client.http.models import VectorParams, Distance
-
+# Function to get the Collections Names from the filenames
 def get_collection_name(file_name):
     return file_name.replace(".txt", "").lower() + "_collection"
 
+# Ingestion function uploads the data to the Qdrant
 def run_ingestion():
     existing_collections = [c.name for c in qdrant_client.get_collections().collections]
 
