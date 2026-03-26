@@ -1,4 +1,7 @@
 import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 
 # Chunkimg the retrieved text
 def chunk_text(text, chunk_size=250, overlap=50):
@@ -40,11 +43,6 @@ def format_score(score):
         label = "Low Relevance"
 
     return f"{percentage}% - {label}"
-
-import re
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
