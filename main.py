@@ -21,6 +21,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 class QueryRequest(BaseModel):
     query: str
+    filter_keyword: str = None 
 
 # Response generating function
 def generate_answer(query, retrieved_chunks):
@@ -113,16 +114,17 @@ def home():
 @app.post("/query")
 def query_rag(request: QueryRequest):
     query = request.query
+    filter_kw = request.filter_keyword.strip() if request.filter_keyword else None
 
     preprocessed_query = preprocess_query(query)
 
-    results = retrieve(preprocessed_query)
+    results = retrieve(preprocessed_query, filter_keyword=filter_kw)
 
     if not results:
-        return{
-            "query":query,
-            "answer":"No relavent answer",
-            "sources":[]
+        return {
+            "query": query,
+            "answer": "No relevant answer",
+            "sources": []
         }
 
     answer = generate_answer(query, results)

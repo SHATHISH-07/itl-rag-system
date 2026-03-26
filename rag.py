@@ -33,18 +33,20 @@ def extract_k(query):
     return 3 
 
 # Top K chunk Retrive function
-def retrieve(query):
+def retrieve(query, filter_keyword=None):
     k = extract_k(query)
     query_vector = model.encode([query])[0]
 
     all_results = []
-
     collections = qdrant_client.get_collections().collections
 
     if not collections:
         return []
 
     for col in collections:
+        if filter_keyword and filter_keyword.lower() not in col.name.lower():
+            continue
+
         results = qdrant_client.query_points(
             collection_name=col.name,
             query=query_vector.tolist(),
@@ -56,7 +58,6 @@ def retrieve(query):
                 continue
 
             payload = dict(res.payload)
-
             source = payload.get("source") or col.name
             score = float(res.score)
 
@@ -66,8 +67,10 @@ def retrieve(query):
             payload["source"] = source
             payload["score"] = score
 
+            if filter_keyword and filter_keyword.lower() not in source.lower():
+                continue
+
             all_results.append(payload)
 
     all_results = sorted(all_results, key=lambda x: x["score"], reverse=True)
-
     return all_results[:k]
