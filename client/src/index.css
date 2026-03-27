@@ -1,12 +1,19 @@
 @import "tailwindcss";
 
-/* Styling for the RAG HTML response */
+/* Add this to your index.css or App.css */
 .rendered-html h2 {
-  font-size: 1.15rem;
+  font-size: 1.5rem;
   font-weight: 700;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
-  color: #0f172a; /* Slate 900 */
+  color: #1e293b;
+}
+
+.rendered-html h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  color: #000000;
 }
 
 .rendered-html p {
@@ -20,12 +27,12 @@
 }
 
 .rendered-html li {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .rendered-html b {
   font-weight: 700;
-  color: #2563eb; /* Blue 600 */
+  color: #1b3469; /* Blue 600 */
 }
 
 /* Scrollbar Utility */

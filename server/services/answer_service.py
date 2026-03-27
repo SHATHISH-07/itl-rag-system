@@ -43,7 +43,7 @@ ANSWER STRUCTURE (STRICT)
 SOURCE CITATION RULES
 
 * Every section (<h2> or <h3> and its content) MUST end with EXACTLY ONE citation.
-* format: <p><b>(Sources: filename | Relevance: XX%)</b></p>
+* format: <b>(Sources: filename | Relevance: XX%)</b>
 * If multiple relevance scores exist for the same filename, use the HIGHEST relevance.
 * Do NOT put citations inside headings or bullet points.
 * Do NOT repeat the same filename in multiple citations for the same section.
@@ -54,6 +54,7 @@ FINAL SOURCES SUMMARY
 * At the end of the answer, list ALL UNIQUE sources used in the entire response.
 * Include ONLY the filenames (ignore relevance scores in this summary).
 * If a filename appears multiple times, show it only once.
+* Always be sure to give a file name once even if multiple source come from the same file then in the final source it is enough to mention the file name only once also never forget to mention any source file name in the sections and aslo at the final
 * Format exactly like:
 <p><b>Sources:</b> filename1, filename2</p>
 
