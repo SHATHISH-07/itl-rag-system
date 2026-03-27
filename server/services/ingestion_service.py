@@ -1,7 +1,7 @@
 import os
 import uuid
 import logging
-from qdrant_client.http.models import VectorParams, Distance, PointStruct # Added PointStruct
+from qdrant_client.http.models import VectorParams, Distance, PointStruct
 from core.embeddings import model
 from utils.helpers import chunk_text, get_collection_name, extract_text_from_file
 from db.qdrant_db import qdrant_client
@@ -9,25 +9,37 @@ from db.qdrant_db import qdrant_client
 logger = logging.getLogger(__name__)
 
 def ingest_file(file_path: str, filename: str):
-    text = extract_text_from_file(file_path, filename)
-    if not text.strip():
-        return {"file": filename, "status": "empty file, skipped"}
-
-    collection_name = get_collection_name(filename)
-
-    VECTOR_SIZE = 384 
-
+    logger.info(f"Starting ingestion for file: {filename}")
+    
     try:
+        text = extract_text_from_file(file_path, filename)
+        if not text.strip():
+            logger.warning(f"Skipping {filename}: No text content extracted.")
+            return {"file": filename, "status": "empty file, skipped"}
+
+        collection_name = get_collection_name(filename)
+        VECTOR_SIZE = 384 
+
+        # Collection Check/Creation
         existing_collections = [c.name for c in qdrant_client.get_collections().collections]
         if collection_name not in existing_collections:
+            logger.info(f"Creating new collection: {collection_name}")
             qdrant_client.create_collection(
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
             )
+        else:
+            logger.debug(f"Using existing collection: {collection_name}")
 
+        # Processing Chunks
         chunks = chunk_text(text)
-        embeddings = model.encode(chunks)
+        logger.info(f"Text split into {len(chunks)} chunks for {filename}")
 
+        # Embedding Generation
+        logger.info(f"Generating embeddings for {filename}...")
+        embeddings = model.encode(chunks)
+        
+        # Point Preparation
         points = [
             PointStruct(
                 id=str(uuid.uuid4()),
@@ -42,10 +54,12 @@ def ingest_file(file_path: str, filename: str):
             for vec, chunk in zip(embeddings, chunks)
         ]
 
+        logger.info(f"Upserting {len(points)} points to Qdrant collection: {collection_name}")
         qdrant_client.upsert(collection_name=collection_name, points=points)
         
+        logger.info(f"SUCCESS: Ingestion completed for {filename}")
         return {"file": filename, "status": f"ingested {len(chunks)} chunks"}
 
     except Exception as e:
-        logger.error(f"Failed to ingest {filename}: {e}")
+        logger.error(f"FAILURE: Could not ingest {filename}. Error: {str(e)}", exc_info=True)
         return {"file": filename, "status": f"error: {str(e)}"}

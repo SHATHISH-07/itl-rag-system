@@ -1,8 +1,13 @@
 import re
+import logging
 from core.llm_client import client, LLM_MODEL
 from utils.helpers import format_score
 
+logger = logging.getLogger(__name__)
+
 def generate_answer(query: str, retrieved_chunks: list) -> str:
+    logger.info(f"Generating answer for query: '{query}'")
+    
     context_blocks = []
     for i, chunk in enumerate(retrieved_chunks, start=1):
         clean_text = re.sub(r"\s+", " ", chunk.get("text", "")).strip()
@@ -13,6 +18,7 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
         context_blocks.append(block)
 
     context = " ".join(context_blocks)
+    logger.info(f"Context constructed with {len(retrieved_chunks)} chunks (Total length: {len(context)} chars)")
 
     prompt = f"""
 You are a retrieval-based AI assistant. Answer the question strictly using ONLY the provided context.
@@ -65,14 +71,26 @@ QUESTION
 {query}
 """
 
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": "You are a specialized RAG assistant that provides structured HTML responses."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0 
-    )
+    try:
+        logger.info(f"Sending request to LLM model: {LLM_MODEL}")
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a specialized RAG assistant that provides structured HTML responses."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0 
+        )
 
-    answer = response.choices[0].message.content
-    return answer.replace("\n", " ").strip()
+        answer = response.choices[0].message.content
+        
+        if not answer:
+            logger.warning("LLM returned an empty response.")
+            return "I don't know based on the provided context."
+
+        logger.info("Successfully generated answer from LLM.")
+        return answer.replace("\n", " ").strip()
+
+    except Exception as e:
+        logger.error(f"LLM generation failed for query '{query}': {str(e)}", exc_info=True)
+        return "An error occurred while generating the answer."

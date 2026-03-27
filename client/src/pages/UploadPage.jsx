@@ -4,17 +4,27 @@ import axios from 'axios';
 const UploadPage = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploadTime, setUploadTime] = useState(null); // State to store the duration
 
   const handleUpload = async () => {
     if (files.length === 0) return;
+    
     setLoading(true);
+    setUploadTime(null); // Reset previous time
+    const startTime = performance.now(); // Start high-resolution timer
+
     const formData = new FormData();
-    // Match your FastAPI "files" parameter
     Array.from(files).forEach(f => formData.append("files", f));
 
     try {
       await axios.post("http://127.0.0.1:8000/files/upload-files", formData);
-      alert("Files successfully ingested into Qdrant!");
+      
+      // Calculate duration
+      const endTime = performance.now();
+      const durationInMinutes = ((endTime - startTime) / 60000).toFixed(2);
+      
+      setUploadTime(durationInMinutes);
+      alert(`Files successfully ingested! Time taken: ${durationInMinutes} minutes.`);
       setFiles([]);
     } catch (error) {
       console.error(error);
@@ -48,6 +58,13 @@ const UploadPage = () => {
       >
         {loading ? "Ingesting Documents..." : "Process and Store"}
       </button>
+
+      {/* Visual Feedback for the user */}
+      {uploadTime && (
+        <p className="mt-4 text-center text-green-600 font-semibold">
+          Last upload took: {uploadTime} minutes
+        </p>
+      )}
     </div>
   );
 };
