@@ -11,9 +11,8 @@ os.makedirs(TEMP_UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload-files")
 async def upload_files(
-   files: Annotated[
-        list[UploadFile], File(description="Multiple files as UploadFile")
-    ],
+    files: 
+        list[UploadFile] = File(description="Multiple files as UploadFile")
 ):
     responses = []
 
