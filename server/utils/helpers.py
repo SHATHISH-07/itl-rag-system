@@ -8,6 +8,14 @@ import fitz
 
 logger = logging.getLogger(__name__)
 
+RELEVANCE_SKIP_WORDS = [
+    r'\bcontents\b', 
+    r'\btable of contents\b', 
+    r'\bindex\b', 
+    r'\bbibliography\b', 
+    r'\breferences\b'
+]
+
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -16,8 +24,8 @@ except LookupError:
 
 def chunk_text(text: str):
     text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
-    
     text = re.sub(r'\s+', ' ', text).strip()
+    
     tokenizer = PunktSentenceTokenizer()
     sentences = tokenizer.tokenize(text)
     
@@ -27,7 +35,6 @@ def chunk_text(text: str):
 
     for i in range(0, len(sentences), STEP_SIZE):
         window = sentences[i : i + WINDOW_SIZE]
-        
         if not window:
             continue
             
@@ -43,9 +50,7 @@ def chunk_text(text: str):
 def extract_k(query: str) -> int:
     match = re.search(r'\b(\d+)\b', query)
     if match:
-        k = int(match.group(1))
-        logger.debug(f"Extracted k={k} from query via digits.")
-        return k
+        return int(match.group(1))
 
     word_to_num = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -55,9 +60,7 @@ def extract_k(query: str) -> int:
     query_lower = query.lower()
     for word, num in word_to_num.items():
         if word in query_lower:
-            logger.debug(f"Extracted k={num} from query via word matching.")
             return num
-
     return 3 
 
 def format_score(score):
@@ -74,9 +77,7 @@ def format_score(score):
 
 def get_collection_name(file_name):
     clean_name = re.sub(r'[^\w\s-]', '', file_name.lower().replace(".txt", ""))
-    col_name = f"{clean_name}_collection"
-    logger.debug(f"Generated collection name: {col_name} for file: {file_name}")
-    return col_name
+    return f"{clean_name}_collection"
 
 def extract_text_from_file(file_path: str, filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
@@ -90,31 +91,38 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
         elif ext == ".pdf":
             doc = fitz.open(file_path)
             text_blocks = []
+            total_pages = len(doc)
             
             for i, page in enumerate(doc):
                 page_text = page.get_text("text")
+                lower_text = page_text.lower().strip()
                 
-                lower_text = page_text.lower()
-                if i < 5: 
-                    if "table of contents" in lower_text or "contents" in lower_text or "index" in lower_text:
-                        logger.info(f"Skipping page {i+1} (Potential TOC/Index)")
+                if not lower_text:
+                    continue
+
+                is_boundary_page = (i < 8 or i > (total_pages - 8))
+                
+                if is_boundary_page:
+                    header_area = lower_text[:300]
+                    if any(re.search(pattern, header_area) for pattern in RELEVANCE_SKIP_WORDS):
+                        logger.info(f"Skipping page {i+1}: Matched exclusion keyword.")
                         continue
-                    if lower_text.count('.') > 50:
-                        logger.info(f"Skipping page {i+1} (High dot density - likely TOC)")
+                    
+                    dot_density = lower_text.count('.') / len(lower_text) if len(lower_text) > 0 else 0
+                    if dot_density > 0.05: # If more than 5% of characters are dots
+                        logger.info(f"Skipping page {i+1}: High dot density (TOC detected).")
                         continue
 
-                if page_text.strip():
-                    text_blocks.append(page_text)
+                text_blocks.append(page_text)
             
             doc.close()
             full_text = "\n".join(text_blocks)
-            logger.info(f"Extracted {len(full_text)} characters from PDF.")
+            logger.info(f"Extracted {len(full_text)} characters from {filename} after filtering.")
             return full_text
                 
         elif ext == ".docx":
             doc = docx.Document(file_path)
-            content = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
-            return content
+            return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
             
         return ""
 
