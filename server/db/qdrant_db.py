@@ -12,4 +12,5 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 qdrant_client = QdrantClient(
     url=QDRANT_URL,
     api_key=QDRANT_API_KEY,
+    timeout=60,
 )

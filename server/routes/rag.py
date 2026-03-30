@@ -18,7 +18,7 @@ class QueryRequest(BaseModel):
     filter_keyword: str = None 
 
 @router.post("/query")
-def query_rag(
+async def query_rag(
     request: QueryRequest, 
     limit: int = Query(5, ge=1, le=20), 
     offset: int = Query(0, ge=0)

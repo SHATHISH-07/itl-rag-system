@@ -1,34 +1,43 @@
 import logging
 import os
-import math 
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+
 from db.qdrant_db import qdrant_client
 from core.embeddings import model
-from sentence_transformers import CrossEncoder 
-from rank_bm25 import BM25Okapi  
+from sentence_transformers import CrossEncoder
+from rank_bm25 import BM25Okapi
 
 logger = logging.getLogger(__name__)
 
 RERANKING_CROSS_ENCODER = os.getenv("RERANKING_CROSS_ENCODER")
-reranker = CrossEncoder(RERANKING_CROSS_ENCODER or "cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+reranker = CrossEncoder(
+    RERANKING_CROSS_ENCODER or "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    max_length=256,
+    device="cpu"   # change to "cuda" if GPU available
+)
+
 
 def format_score(score):
     percentage = round(score * 100)
-    if score >= 0.80:
+    if score >= 0.85:
         return f"{percentage}% - Highly Relevant"
-    elif score >= 0.50:
-        return f"{percentage}% - Relevant"
-    elif score >= 0.20:
-        return f"{percentage}% - Balanced Match"
+    elif score >= 0.60:
+        return f"{percentage}% - Relevant & Accurate"
+    elif score >= 0.35:
+        return f"{percentage}% - Partially Relevant"
     else:
         return f"{percentage}% - Low Relevance"
 
+
 def retrieve(query: str, filter_keyword: str = None, limit: int = 5, offset: int = 0):
     logger.info(f"Starting hybrid retrieval for: '{query}'")
-    
+
+    # Step 1: Embed Query
     query_vector = model.encode([query])[0]
     all_results = []
-    
+
+    # Step 2: Fetch Collections
     try:
         collections_response = qdrant_client.get_collections()
         collections = collections_response.collections
@@ -36,59 +45,123 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 5, offset: int
         logger.error(f"Error connecting to Qdrant: {e}")
         return [], 0
 
-    for col in collections:
+    # Step 3: Parallel Query Qdrant
+    def query_collection(col):
         try:
             results = qdrant_client.query_points(
                 collection_name=col.name,
                 query=query_vector.tolist(),
-                limit=40 
+                limit=20   # reduced from 50
             )
+            temp = []
             for res in results.points:
-                if not res.payload: continue
+                if not res.payload:
+                    continue
+
                 payload = dict(res.payload)
                 payload["vector_score"] = float(res.score)
                 payload["source"] = payload.get("source") or col.name
-                all_results.append(payload)
-        except Exception as e:
-            logger.error(f"Error querying collection '{col.name}': {e}")
+                temp.append(payload)
 
-    if not all_results: 
+            return temp
+
+        except Exception as e:
+            logger.error(f"Error querying {col.name}: {e}")
+            return []
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = executor.map(query_collection, collections)
+
+    for r in results:
+        all_results.extend(r)
+
+    if not all_results:
         return [], 0
 
+    # Step 4: Initial Ranking (Vector)
     all_results = sorted(all_results, key=lambda x: x["vector_score"], reverse=True)
-    candidate_pool = all_results[:50] 
-    
+
+    # Take top 50 for hybrid scoring
+    candidate_pool = all_results[:50]
+
     corpus_texts = [r.get("text", "") for r in candidate_pool]
+
+    # Step 5: BM25 Scoring
     tokenized_corpus = [doc.lower().split() for doc in corpus_texts]
     tokenized_query = query.lower().split()
-    
+
     bm25 = BM25Okapi(tokenized_corpus)
-    bm25_scores = bm25.get_scores(tokenized_query)
-    
-    min_bm = min(bm25_scores) if len(bm25_scores) > 0 else 0
-    max_bm = max(bm25_scores) if len(bm25_scores) > 0 else 1
-    bm_range = max_bm - min_bm
+    raw_bm25_scores = bm25.get_scores(tokenized_query)
 
-    sentence_pairs = [[query, txt] for txt in corpus_texts]
-    raw_rerank_scores = reranker.predict(sentence_pairs)
+    # Normalize BM25
+    min_bm = min(raw_bm25_scores)
+    max_bm = max(raw_bm25_scores)
+    bm_range = max_bm - min_bm + 1e-6
+    norm_bm25 = [(s - min_bm) / bm_range for s in raw_bm25_scores]
 
-    for i, score in enumerate(raw_rerank_scores):
-        ce_score = 1 / (1 + math.exp(-score))
-        norm_bm_score = (bm25_scores[i] - min_bm) / bm_range if bm_range > 0 else 0
-        vector_weight = candidate_pool[i]["vector_score"]
-        
-        final_score = (ce_score * 0.6) + (norm_bm_score * 0.3) + (vector_weight * 0.1)
-        
+    # Step 6: Select Top 20 for Reranking (IMPORTANT SPEED FIX)
+    rerank_indices = list(range(min(20, len(candidate_pool))))
+    rerank_texts = [corpus_texts[i] for i in rerank_indices]
+
+    sentence_pairs = [[query, txt] for txt in rerank_texts]
+    raw_ce_scores = reranker.predict(sentence_pairs)
+
+    # Normalize CrossEncoder scores
+    min_ce = min(raw_ce_scores)
+    max_ce = max(raw_ce_scores)
+    ce_range = max_ce - min_ce + 1e-6
+    norm_ce_scores_partial = [(s - min_ce) / ce_range for s in raw_ce_scores]
+
+    # Fill CE scores for all (default 0 for non-reranked)
+    norm_ce_scores = [0.0] * len(candidate_pool)
+    for idx, score in zip(rerank_indices, norm_ce_scores_partial):
+        norm_ce_scores[idx] = score
+
+    # Step 7: Normalize Vector Scores
+    vector_scores = [r["vector_score"] for r in candidate_pool]
+    min_vec = min(vector_scores)
+    max_vec = max(vector_scores)
+    vec_range = max_vec - min_vec + 1e-6
+    norm_vector_scores = [(v - min_vec) / vec_range for v in vector_scores]
+
+    # Step 8: Final Hybrid Scoring
+    for i in range(len(candidate_pool)):
+        ce_score = norm_ce_scores[i]
+        bm_score = norm_bm25[i]
+        vector_score = norm_vector_scores[i]
+
+        # Dynamic BM25 weight (faster queries benefit less from BM25)
+        if len(query.split()) < 4:
+            bm_weight = 0.15
+        else:
+            bm_weight = 0.25
+
+        final_score = (
+            (ce_score * 0.6) +
+            (bm_score * bm_weight) +
+            (vector_score * 0.15)
+        )
+
+        # Length Penalty
+        text_len = len(corpus_texts[i].split())
+        length_penalty = min(1.0, text_len / 50)
+        final_score *= length_penalty
+
         candidate_pool[i]["score"] = final_score
         candidate_pool[i]["relevance_label"] = format_score(final_score)
-        candidate_pool[i]["bm25_score"] = norm_bm_score 
+        candidate_pool[i]["bm25_score"] = bm_score
         candidate_pool[i]["ce_score"] = ce_score
+        candidate_pool[i]["vector_score_norm"] = vector_score
 
+    # Step 9: Final Sort
     candidate_pool = sorted(candidate_pool, key=lambda x: x["score"], reverse=True)
-    
+
     total_count = len(candidate_pool)
-    paginated_results = candidate_pool[offset : offset + limit]
-    
-    logger.info(f"Retrieval complete. Best Hybrid Score: {paginated_results[0]['score'] if paginated_results else 0:.4f}")
-    
+    paginated_results = candidate_pool[offset: offset + limit]
+
+    logger.info(
+        f"Retrieval complete. Best Hybrid Score: "
+        f"{paginated_results[0]['score'] if paginated_results else 0:.4f}"
+    )
+
     return paginated_results, total_count

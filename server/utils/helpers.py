@@ -29,22 +29,33 @@ def chunk_text(text: str):
     tokenizer = PunktSentenceTokenizer()
     sentences = tokenizer.tokenize(text)
     
+    cleaned_sentences = []
+    for s in sentences:
+        s_cleaned = re.sub(r'[\.\s_]{2,}$', '', s).strip()
+        
+        if len(s_cleaned) > 5 and any(c.isalpha() for c in s_cleaned):
+            cleaned_sentences.append(s_cleaned)
+
     chunks = []
     STEP_SIZE = 8      
     WINDOW_SIZE = 10    
 
-    for i in range(0, len(sentences), STEP_SIZE):
-        window = sentences[i : i + WINDOW_SIZE]
+    for i in range(0, len(cleaned_sentences), STEP_SIZE):
+        window = cleaned_sentences[i : i + WINDOW_SIZE]
         if not window:
             continue
             
         chunk_content = " ".join(window).strip()
+        
+        if len(chunk_content) > 0 and (chunk_content.count('.') / len(chunk_content) > 0.3):
+            continue
+
         chunks.append(chunk_content)
         
-        if i + WINDOW_SIZE >= len(sentences):
+        if i + WINDOW_SIZE >= len(cleaned_sentences):
             break
             
-    logger.info(f"Scaled Chunking: created {len(chunks)} chunks.")
+    logger.info(f"Scaled Chunking: created {len(chunks)} cleaned chunks.")
     return chunks
 
 def extract_k(query: str) -> int:
