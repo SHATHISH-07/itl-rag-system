@@ -20,7 +20,6 @@ def ingest_file(file_path: str, filename: str):
         collection_name = get_collection_name(filename)
         VECTOR_SIZE = 384 
 
-        # Collection Check/Creation
         existing_collections = [c.name for c in qdrant_client.get_collections().collections]
         if collection_name not in existing_collections:
             logger.info(f"Creating new collection: {collection_name}")
@@ -31,15 +30,12 @@ def ingest_file(file_path: str, filename: str):
         else:
             logger.debug(f"Using existing collection: {collection_name}")
 
-        # Processing Chunks
         chunks = chunk_text(text)
         logger.info(f"Text split into {len(chunks)} chunks for {filename}")
 
-        # Embedding Generation
         logger.info(f"Generating embeddings for {filename}...")
         embeddings = model.encode(chunks)
         
-        # Point Preparation
         points = [
             PointStruct(
                 id=str(uuid.uuid4()),
@@ -54,9 +50,18 @@ def ingest_file(file_path: str, filename: str):
             for vec, chunk in zip(embeddings, chunks)
         ]
 
-        logger.info(f"Upserting {len(points)} points to Qdrant collection: {collection_name}")
-        qdrant_client.upsert(collection_name=collection_name, points=points)
+        BATCH_SIZE = 100
+        logger.info(f"Upserting {len(points)} points in batches of {BATCH_SIZE} to: {collection_name}")
         
+        for i in range(0, len(points), BATCH_SIZE):
+            batch = points[i : i + BATCH_SIZE]
+            qdrant_client.upsert(
+                collection_name=collection_name, 
+                points=batch,
+                wait=True
+            )
+            logger.debug(f"Successfully upserted batch {i//BATCH_SIZE + 1}")
+
         logger.info(f"SUCCESS: Ingestion completed for {filename}")
         return {"file": filename, "status": f"ingested {len(chunks)} chunks"}
 

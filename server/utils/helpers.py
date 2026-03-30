@@ -2,10 +2,10 @@ import os
 import re
 import docx
 import nltk
+from nltk.tokenize import PunktSentenceTokenizer
 import logging
-from pypdf import PdfReader
+import fitz
 
-# Setup logger for this module
 logger = logging.getLogger(__name__)
 
 try:
@@ -14,28 +14,30 @@ except LookupError:
     logger.info("NLTK punkt tokenizer not found. Downloading...")
     nltk.download('punkt', quiet=True)
 
-def chunk_text(text, chunk_size=250, overlap=50):
-    sentences = nltk.sent_tokenize(text)
+def chunk_text(text: str):
+    text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
+    
+    text = re.sub(r'\s+', ' ', text).strip()
+    tokenizer = PunktSentenceTokenizer()
+    sentences = tokenizer.tokenize(text)
+    
     chunks = []
-    current_chunk = []
-    current_length = 0
+    STEP_SIZE = 8      
+    WINDOW_SIZE = 10    
 
-    for sentence in sentences:
-        words = sentence.split()
-
-        if current_length + len(words) > chunk_size:
-            chunks.append(" ".join(current_chunk))
-            overlap_words = " ".join(current_chunk).split()[-overlap:]
-            current_chunk = [" ".join(overlap_words)]
-            current_length = len(overlap_words)
-
-        current_chunk.append(sentence)
-        current_length += len(words)
-
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
-
-    logger.debug(f"Chunking complete: created {len(chunks)} chunks from text.")
+    for i in range(0, len(sentences), STEP_SIZE):
+        window = sentences[i : i + WINDOW_SIZE]
+        
+        if not window:
+            continue
+            
+        chunk_content = " ".join(window).strip()
+        chunks.append(chunk_content)
+        
+        if i + WINDOW_SIZE >= len(sentences):
+            break
+            
+    logger.info(f"Scaled Chunking: created {len(chunks)} chunks.")
     return chunks
 
 def extract_k(query: str) -> int:
@@ -83,29 +85,38 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
     try:
         if ext in [".txt", ".py", ".ts", ".js", ".csv"]:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-                logger.info(f"Read {len(content)} characters from text file.")
-                return content
+                return f.read()
                 
         elif ext == ".pdf":
-            reader = PdfReader(file_path)
-            text = ""
-            for i, page in enumerate(reader.pages):
-                extracted = page.extract_text()
-                if extracted:
-                    text += extracted + "\n"
-            logger.info(f"Extracted {len(text)} characters from {len(reader.pages)} PDF pages.")
-            return text
+            doc = fitz.open(file_path)
+            text_blocks = []
+            
+            for i, page in enumerate(doc):
+                page_text = page.get_text("text")
+                
+                lower_text = page_text.lower()
+                if i < 5: 
+                    if "table of contents" in lower_text or "contents" in lower_text or "index" in lower_text:
+                        logger.info(f"Skipping page {i+1} (Potential TOC/Index)")
+                        continue
+                    if lower_text.count('.') > 50:
+                        logger.info(f"Skipping page {i+1} (High dot density - likely TOC)")
+                        continue
+
+                if page_text.strip():
+                    text_blocks.append(page_text)
+            
+            doc.close()
+            full_text = "\n".join(text_blocks)
+            logger.info(f"Extracted {len(full_text)} characters from PDF.")
+            return full_text
                 
         elif ext == ".docx":
             doc = docx.Document(file_path)
-            content = "\n".join(paragraph.text for paragraph in doc.paragraphs)
-            logger.info(f"Extracted {len(content)} characters from DOCX.")
+            content = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
             return content
             
-        else:
-            logger.warning(f"Unsupported file extension: {ext} for file {filename}")
-            return ""
+        return ""
 
     except Exception as e:
         logger.error(f"Error extracting text from {filename}: {str(e)}", exc_info=True)
