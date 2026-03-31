@@ -5,6 +5,7 @@ import nltk
 from nltk.tokenize import PunktSentenceTokenizer
 import logging
 import fitz
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -137,3 +138,17 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
     except Exception as e:
         logger.error(f"Error extracting text from {filename}: {str(e)}", exc_info=True)
         return ""
+
+def make_cache_key(prefix: str, text: str):
+    return f"{prefix}:{hashlib.sha256(text.encode()).hexdigest()}"
+
+def format_score(score):
+    percentage = round(score * 100)
+    if score >= 0.85:
+        return f"{percentage}% - Highly Relevant"
+    elif score >= 0.60:
+        return f"{percentage}% - Relevant & Accurate"
+    elif score >= 0.35:
+        return f"{percentage}% - Partially Relevant"
+    else:
+        return f"{percentage}% - Low Relevance"
