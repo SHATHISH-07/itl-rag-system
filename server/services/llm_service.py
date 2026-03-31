@@ -8,8 +8,14 @@ logger = logging.getLogger(__name__)
 def generate_answer(query: str, retrieved_chunks: list) -> str:
     logger.info(f"Generating answer for query: '{query}'")
     
+    # Filter out extremely low relevance chunks (Noise Filter)
+    valid_chunks = [c for c in retrieved_chunks if c.get("score", 0) > 0.40]
+
+    if not valid_chunks:
+        return "I don't know based on the provided context."
+
     context_blocks = []
-    for i, chunk in enumerate(retrieved_chunks, start=1):
+    for i, chunk in enumerate(valid_chunks, start=1):
         clean_text = re.sub(r"\s+", " ", chunk.get("text", "")).strip()
         score = chunk.get("score", 0)
         f_score = format_score(score)
@@ -18,7 +24,7 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
         context_blocks.append(block)
 
     context = " ".join(context_blocks)
-    logger.info(f"Context constructed with {len(retrieved_chunks)} chunks (Total length: {len(context)} chars)")
+    logger.info(f"Context constructed with {len(valid_chunks)} chunks")
 
     prompt = f"""
 You are a retrieval-based AI assistant. Answer the question strictly using ONLY the provided context.
@@ -31,6 +37,7 @@ RULES (MANDATORY)
 * If the answer is not present in the context, respond EXACTLY:
   "I don't know based on the provided context."
 * Don't include any unnecessary information in the final result
+* Do not reply for the empty query and whitespaces.
 
 ANSWER STRUCTURE (STRICT)
 
@@ -72,7 +79,6 @@ QUESTION
 """
 
     try:
-        logger.info(f"Sending request to LLM model: {LLM_MODEL}")
         response = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
@@ -83,14 +89,8 @@ QUESTION
         )
 
         answer = response.choices[0].message.content
-        
-        if not answer:
-            logger.warning("LLM returned an empty response.")
-            return "I don't know based on the provided context."
-
-        logger.info("Successfully generated answer from LLM.")
-        return answer.replace("\n", " ").strip()
+        return answer.replace("\n", " ").strip() if answer else "I don't know based on the provided context."
 
     except Exception as e:
-        logger.error(f"LLM generation failed for query '{query}': {str(e)}", exc_info=True)
+        logger.error(f"LLM failure: {str(e)}")
         return "An error occurred while generating the answer."

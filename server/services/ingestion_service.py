@@ -1,70 +1,102 @@
-import os
+from core.embeddings import model
+from db.qdrant_db import qdrant_client
+from utils.helpers import chunk_text, extract_text_from_file, get_collection_name
+
+from qdrant_client.models import VectorParams, Distance
+
 import uuid
 import logging
-from qdrant_client.http.models import VectorParams, Distance, PointStruct
-from core.embeddings import model
-from utils.helpers import chunk_text, get_collection_name, extract_text_from_file
-from db.qdrant_db import qdrant_client
 
 logger = logging.getLogger(__name__)
 
-def ingest_file(file_path: str, filename: str):
-    logger.info(f"Starting ingestion for file: {filename}")
-    
+EMBED_BATCH_SIZE = 64
+QDRANT_BATCH_SIZE = 256
+
+
+def ensure_collection(collection_name: str, vector_size: int):
     try:
-        text = extract_text_from_file(file_path, filename)
-        if not text.strip():
-            logger.warning(f"Skipping {filename}: No text content extracted.")
-            return {"file": filename, "status": "empty file, skipped"}
+        collections = qdrant_client.get_collections().collections
+        existing_collections = [col.name for col in collections]
 
-        collection_name = get_collection_name(filename)
-        VECTOR_SIZE = 384 
-
-        existing_collections = [c.name for c in qdrant_client.get_collections().collections]
         if collection_name not in existing_collections:
-            logger.info(f"Creating new collection: {collection_name}")
+            logger.info(f"Creating collection: {collection_name}")
+
             qdrant_client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+                vectors_config=VectorParams(
+                    size=vector_size,
+                    distance=Distance.COSINE
+                )
             )
-        else:
-            logger.debug(f"Using existing collection: {collection_name}")
+    except Exception as e:
+        logger.error(f"Error ensuring collection: {str(e)}", exc_info=True)
+        raise
 
+
+def ingest_file(file_path: str, filename: str):
+    try:
+        logger.info(f"Starting ingestion for: {filename}")
+
+        # Extract text
+        text = extract_text_from_file(file_path, filename)
+        if not text:
+            return {"file": filename, "status": "No text extracted"}
+
+        # Chunking
         chunks = chunk_text(text)
-        logger.info(f"Text split into {len(chunks)} chunks for {filename}")
+        if not chunks:
+            return {"file": filename, "status": "No valid chunks"}
 
-        logger.info(f"Generating embeddings for {filename}...")
-        embeddings = model.encode(chunks)
-        
+        logger.info(f"{filename}: {len(chunks)} chunks created")
+
+        # Batch Embedding
+        embeddings = []
+        for i in range(0, len(chunks), EMBED_BATCH_SIZE):
+            batch = chunks[i:i + EMBED_BATCH_SIZE]
+            batch_embeddings = model.encode(batch)
+            embeddings.extend(batch_embeddings)
+
+        logger.info(f"{filename}: Embedding completed")
+
+        # Ensure Collection Exists
+        collection_name = get_collection_name(filename)
+        vector_size = len(embeddings[0])
+
+        ensure_collection(collection_name, vector_size)
+
+        # Prepare Points
         points = [
-            PointStruct(
-                id=str(uuid.uuid4()),
-                vector=vec.tolist(),
-                payload={
+            {
+                "id": str(uuid.uuid4()),
+                "vector": emb.tolist(),
+                "payload": {
                     "text": chunk,
-                    "source": filename,
-                    "file_type": os.path.splitext(filename)[1].lower(),
-                    "size": len(chunk),
-                }
-            )
-            for vec, chunk in zip(embeddings, chunks)
+                    "source": filename
+                },
+            }
+            for chunk, emb in zip(chunks, embeddings)
         ]
 
-        BATCH_SIZE = 100
-        logger.info(f"Upserting {len(points)} points in batches of {BATCH_SIZE} to: {collection_name}")
-        
-        for i in range(0, len(points), BATCH_SIZE):
-            batch = points[i : i + BATCH_SIZE]
-            qdrant_client.upsert(
-                collection_name=collection_name, 
-                points=batch,
-                wait=True
-            )
-            logger.debug(f"Successfully upserted batch {i//BATCH_SIZE + 1}")
+        # Batch Insert into Qdrant
+        for i in range(0, len(points), QDRANT_BATCH_SIZE):
+            batch = points[i:i + QDRANT_BATCH_SIZE]
 
-        logger.info(f"SUCCESS: Ingestion completed for {filename}")
-        return {"file": filename, "status": f"ingested {len(chunks)} chunks"}
+            qdrant_client.upsert(
+                collection_name=collection_name,
+                points=batch
+            )
+
+        logger.info(f"{filename}: {len(points)} points stored successfully")
+
+        return {
+            "file": filename,
+            "status": "Success",
+            "chunks": len(points)
+        }
 
     except Exception as e:
-        logger.error(f"FAILURE: Could not ingest {filename}. Error: {str(e)}", exc_info=True)
-        return {"file": filename, "status": f"error: {str(e)}"}
+        logger.error(f"Ingestion failed for {filename}: {str(e)}", exc_info=True)
+        return {
+            "file": filename,
+            "status": f"Error: {str(e)}"
+        }

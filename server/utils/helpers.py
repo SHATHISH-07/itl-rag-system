@@ -25,37 +25,34 @@ except LookupError:
 def chunk_text(text: str):
     text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    
+
     tokenizer = PunktSentenceTokenizer()
     sentences = tokenizer.tokenize(text)
-    
-    cleaned_sentences = []
-    for s in sentences:
-        s_cleaned = re.sub(r'[\.\s_]{2,}$', '', s).strip()
-        
-        if len(s_cleaned) > 5 and any(c.isalpha() for c in s_cleaned):
-            cleaned_sentences.append(s_cleaned)
+
+    cleaned_sentences = [
+        re.sub(r'[\.\s_]{2,}$', '', s).strip()
+        for s in sentences
+        if len(s) > 5 and any(c.isalpha() for c in s)
+    ]
 
     chunks = []
-    STEP_SIZE = 8      
-    WINDOW_SIZE = 10    
+    
+    STEP_SIZE = 15      
+    WINDOW_SIZE = 20  
 
     for i in range(0, len(cleaned_sentences), STEP_SIZE):
-        window = cleaned_sentences[i : i + WINDOW_SIZE]
+        window = cleaned_sentences[i:i + WINDOW_SIZE]
         if not window:
             continue
-            
-        chunk_content = " ".join(window).strip()
-        
-        if len(chunk_content) > 0 and (chunk_content.count('.') / len(chunk_content) > 0.3):
-            continue
 
-        chunks.append(chunk_content)
-        
+        chunk = " ".join(window).strip()
+        if len(chunk) > 0:
+            chunks.append(chunk)
+
         if i + WINDOW_SIZE >= len(cleaned_sentences):
             break
-            
-    logger.info(f"Scaled Chunking: created {len(chunks)} cleaned chunks.")
+  
+    logger.info(f"Optimized Chunking: {len(chunks)} chunks created")
     return chunks
 
 def extract_k(query: str) -> int:
@@ -120,7 +117,7 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
                         continue
                     
                     dot_density = lower_text.count('.') / len(lower_text) if len(lower_text) > 0 else 0
-                    if dot_density > 0.05: # If more than 5% of characters are dots
+                    if dot_density > 0.05: 
                         logger.info(f"Skipping page {i+1}: High dot density (TOC detected).")
                         continue
 
