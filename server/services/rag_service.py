@@ -25,7 +25,6 @@ reranker = CrossEncoder(
 SIM_THRESHOLD = 0.90
 
 
-# -------------------- RETRIEVE (UNCHANGED) --------------------
 def retrieve(query: str, filter_keyword: str = None, limit: int = 5, offset: int = 0):
     logger.info(f"Starting hybrid retrieval for: '{query}'")
 
@@ -150,14 +149,12 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 5, offset: int
 def rag_pipeline(query: str, generate_answer_fn):
     final_cache_key = make_cache_key("final", query)
 
-    # ✅ FINAL CACHE
     if redis_client:
         cached_response = redis_client.get(final_cache_key)
         if cached_response:
-            logger.info("Final response cache hit ✅")
+            logger.info("Final response cache hit")
             return json.loads(cached_response)
 
-    # ✅ EMBEDDING
     embedding_key = make_cache_key("embedding", query)
 
     if redis_client:
@@ -170,7 +167,6 @@ def rag_pipeline(query: str, generate_answer_fn):
     else:
         query_vector = model.encode([query])[0].tolist()
 
-    # 🔥 VECTOR CACHE SEARCH (QDRANT)
     try:
         results = qdrant_client.search(
             collection_name=SEMANTIC_COLLECTION,
@@ -179,13 +175,12 @@ def rag_pipeline(query: str, generate_answer_fn):
         )
 
         if results and results[0].score >= SIM_THRESHOLD:
-            logger.info(f"Vector cache hit ✅ (score={results[0].score:.3f})")
+            logger.info(f"Vector cache hit (score={results[0].score:.3f})")
             return results[0].payload["response"]
 
     except Exception as e:
         logger.warning(f"Vector cache search failed: {e}")
 
-    # 🔁 NORMAL FLOW
     retrieved_chunks, _ = retrieve(query)
 
     if not retrieved_chunks:
@@ -194,7 +189,6 @@ def rag_pipeline(query: str, generate_answer_fn):
     answer = generate_answer_fn(query, retrieved_chunks)
     response = {"answer": answer}
 
-    # 🔥 STORE IN VECTOR CACHE
     try:
         qdrant_client.upsert(
             collection_name=SEMANTIC_COLLECTION,
@@ -207,12 +201,11 @@ def rag_pipeline(query: str, generate_answer_fn):
                 }
             }]
         )
-        logger.info("Stored in vector cache ✅")
+        logger.info("Stored in vector cache")
 
     except Exception as e:
         logger.warning(f"Vector cache insert failed: {e}")
 
-    # ✅ FINAL CACHE
     if redis_client:
         redis_client.setex(final_cache_key, 1800, json.dumps(response))
 
