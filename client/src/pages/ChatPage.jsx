@@ -168,7 +168,7 @@ const ChatPage = ({ isCollapsed }) => {
                 }
               }}
               placeholder="Ask your knowledge base anything..."
-              className="w-full bg-transparent border-none px-3 py-3 focus:ring-0 text-zinc-800 placeholder:text-zinc-500 resize-none min-h-12 max-h-48 text-[16px]"
+              className="w-full border-none outline-none bg-transparent px-3 py-3 focus:ring-0 text-zinc-800 placeholder:text-zinc-500 resize-none min-h-12 max-h-48 text-[16px]"
             />
 
             <button
