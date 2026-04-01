@@ -6,6 +6,9 @@ from nltk.tokenize import PunktSentenceTokenizer
 import logging
 import fitz
 import hashlib
+from core.redis_client import redis_client
+from core.embeddings import model
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,9 @@ except LookupError:
     logger.info("NLTK punkt tokenizer not found. Downloading...")
     nltk.download('punkt', quiet=True)
 
+EMBEDDING_DIM = 384
+
+# Function to Chunk text with optimized sliding window approach
 def chunk_text(text: str):
     text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
     text = re.sub(r'\s+', ' ', text).strip()
@@ -56,6 +62,7 @@ def chunk_text(text: str):
     logger.info(f"Optimized Chunking: {len(chunks)} chunks created")
     return chunks
 
+# Function to extract k from query
 def extract_k(query: str) -> int:
     match = re.search(r'\b(\d+)\b', query)
     if match:
@@ -72,6 +79,7 @@ def extract_k(query: str) -> int:
             return num
     return 3 
 
+# Function to format score into percentage and relevance label
 def format_score(score):
     percentage = round(score * 100)
     if score >= 0.85:
@@ -84,10 +92,12 @@ def format_score(score):
         label = "Low Relevance"
     return f"{percentage}% - {label}"
 
+# Function to get collection name from file name
 def get_collection_name(file_name):
     clean_name = re.sub(r'[^\w\s-]', '', file_name.lower().replace(".txt", ""))
     return f"{clean_name}_collection"
 
+# Function to extract text from various file types with enhanced PDF filtering
 def extract_text_from_file(file_path: str, filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
     logger.info(f"Extracting text from {filename} (extension: {ext})")
@@ -139,9 +149,12 @@ def extract_text_from_file(file_path: str, filename: str) -> str:
         logger.error(f"Error extracting text from {filename}: {str(e)}", exc_info=True)
         return ""
 
+# Caching functions
 def make_cache_key(prefix: str, text: str):
-    return f"{prefix}:{hashlib.sha256(text.encode()).hexdigest()}"
+    normalized = " ".join(text.lower().strip().split())
+    return f"{prefix}:{hashlib.sha256(normalized.encode()).hexdigest()}"
 
+# Function to Format score into percentage and relevance label
 def format_score(score):
     percentage = round(score * 100)
     if score >= 0.85:
@@ -152,3 +165,16 @@ def format_score(score):
         return f"{percentage}% - Partially Relevant"
     else:
         return f"{percentage}% - Low Relevance"
+
+# Function to get embedding with caching
+def get_embedding(query: str):
+    embedding_key = make_cache_key("embedding", query)
+    if redis_client:
+        cached = redis_client.get(embedding_key)
+        if cached:
+            return json.loads(cached)
+
+    vector = model.encode([query])[0].tolist()
+    if redis_client:
+        redis_client.setex(embedding_key, 3600, json.dumps(vector))
+    return vector
