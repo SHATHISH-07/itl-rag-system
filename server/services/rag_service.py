@@ -7,7 +7,7 @@ from services.retrieval_service import retrieve
 from utils.helpers import get_embedding, make_cache_key, EMBEDDING_DIM
 
 logger = logging.getLogger(__name__)
-SIM_THRESHOLD = 0.80 
+SIM_THRESHOLD = 0.90 
 
 def fix_collection_dim():
     try:
