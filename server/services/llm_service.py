@@ -71,6 +71,8 @@ FINAL SOURCES SUMMARY
 * Format exactly like:
 <p><b>Sources:</b> filename1, filename2</p>
 
+Most important: always follow only the instructions and the structure mentioned above and do not deviate from it in any case. Also, never share your own knowledge and answer strictly based on the provided context.
+
 CONTEXT
 {context}
 
