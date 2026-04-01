@@ -86,7 +86,7 @@ const ChatPage = ({ isCollapsed }) => {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-in fade-in zoom-in duration-700">
             
-              <h2 className="text-4xl font-bold text-zinc-900 tracking-tight mb-3">What are we building today?</h2>
+              <h2 className="text-4xl font-bold text-zinc-900 tracking-tight mb-3">What are we Refering Today ?</h2>
               <p className="text-zinc-500 text-lg max-w-sm mx-auto leading-relaxed">
                 Your AI assistant is ready to process your documents and answer questions.
               </p>
