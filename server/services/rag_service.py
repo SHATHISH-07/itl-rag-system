@@ -1,5 +1,4 @@
 import logging
-import hashlib
 import json
 from uuid import uuid4
 from core.redis_client import redis_client
@@ -8,7 +7,7 @@ from services.retrieval_service import retrieve
 from utils.helpers import get_embedding, make_cache_key, EMBEDDING_DIM
 
 logger = logging.getLogger(__name__)
-SIM_THRESHOLD = 0.92 
+SIM_THRESHOLD = 0.50 
 
 def fix_collection_dim():
     try:
