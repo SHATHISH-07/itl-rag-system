@@ -55,7 +55,7 @@ function App() {
           )}
         </div>
 
-        <nav className="flex-1 px-3 space-y-4">
+        <nav className="flex-1 px-3 space-y-2">
           {navItems.map((item) => (
             <button
               key={item.id}
