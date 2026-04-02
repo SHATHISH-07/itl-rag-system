@@ -114,14 +114,6 @@ Each section MUST follow EXACTLY:
 
 --------------------------------------------------
 
-### 🚫 STRICT SOURCE RULES
-- NEVER invent filenames
-- NEVER invent relevance scores
-- NEVER repeat the same filename in one section
-- Use ONLY context-provided metadata
-
---------------------------------------------------
-
 ### 📌 CITATION FORMAT (STRICT)
 - MUST be EXACTLY:
   <br/><b>(Sources: filename1, filename2 | Relevance: XX%, YY%)</b>
@@ -132,17 +124,9 @@ Each section MUST follow EXACTLY:
 
 --------------------------------------------------
 
-### 🧠 GLOBAL SOURCE TRACKING
-- Maintain USED_SOURCES as a SET
-- Add filename ONLY when used in a section
-- NO duplicates allowed
-- DO NOT introduce new sources later
-
---------------------------------------------------
-
 ### 🧾 FINAL SOURCES SUMMARY
 - Use ONLY USED_SOURCES
-- REMOVE duplicates
+- AlWAYS REMOVE duplicate filenames in the source list
 - DO NOT add new filenames
 
 - If empty:
@@ -150,6 +134,8 @@ Each section MUST follow EXACTLY:
 
 - Otherwise:
 <p><b>Sources:</b> filename1, filename2</p>
+
+- If same filename appears multiple times, list it ONCE with the HIGHEST relevance score
 
 --------------------------------------------------
 

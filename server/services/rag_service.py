@@ -5,13 +5,13 @@ from core.redis_client import redis_client
 from db.qdrant_db import qdrant_client, SEMANTIC_COLLECTION
 from services.retrieval_service import retrieve
 from utils.helpers import get_embedding, make_cache_key, EMBEDDING_DIM
+from qdrant_client.http import models
 
 logger = logging.getLogger(__name__)
 SIM_THRESHOLD = 0.90 
 
 def fix_collection_dim():
     try:
-        from qdrant_client.http import models
         info = qdrant_client.get_collection(SEMANTIC_COLLECTION)
         if info.config.params.vectors.size != EMBEDDING_DIM:
             logger.warning("Dimension mismatch detected. Recreating semantic_cache...")
@@ -21,7 +21,6 @@ def fix_collection_dim():
                 vectors_config=models.VectorParams(size=EMBEDDING_DIM, distance=models.Distance.COSINE)
             )
     except:
-        from qdrant_client.http import models
         qdrant_client.create_collection(
             collection_name=SEMANTIC_COLLECTION,
             vectors_config=models.VectorParams(size=EMBEDDING_DIM, distance=models.Distance.COSINE)
@@ -59,7 +58,16 @@ def rag_pipeline(query: str, generate_answer_fn):
         return {"answer": "No relevant information found."}
 
     answer = generate_answer_fn(query, chunks)
-    response = {"answer": answer}
+
+    unique_sources = sorted(list(set(
+        chunk.get("metadata", {}).get("source") or chunk.get("source") 
+        for chunk in chunks if chunk.get("source") or chunk.get("metadata")
+    )))
+
+    response = {
+        "answer": answer,
+        "sources": ", ".join(unique_sources) if unique_sources else "None"
+    }
 
     if redis_client:
         redis_client.setex(exact_key, 3600, json.dumps(response))
