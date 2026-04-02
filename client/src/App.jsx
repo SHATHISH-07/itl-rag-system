@@ -8,8 +8,8 @@ function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'chat', label: 'Conversation', icon: MessageSquare },
-    { id: 'upload', label: 'Knowledge Base', icon: UploadCloud },
+    { id: 'chat', label: 'Chat', icon: MessageSquare },
+    { id: 'upload', label: 'Upload', icon: UploadCloud },
   ];
 
   return (
@@ -26,13 +26,13 @@ function App() {
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-zinc-200 bg-white shadow-sm shrink-0">
-                  <span className="font-serif font-normal text-zinc-600 leading-none text-2xl">i</span>
+                <div className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-black shadow-sm shrink-0">
+                 
                 </div>
               </div>
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className="p-1.5  rounded-lg text-black transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-zinc-100 rounded-full text-black transition-colors cursor-pointer"
               >
                 <Menu size={20} />
               </button>
@@ -41,13 +41,13 @@ function App() {
             /* Using a fixed width container that matches the icon alignment of the nav buttons below */
             <div className="relative group w-8 h-8 flex items-center justify-center mx-auto">
               {/* Branding icon shown by default */}
-              <div className="absolute inset-0 flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-white shadow-sm transition-opacity duration-200 group-hover:opacity-0">
-                <span className="font-serif font-normal text-zinc-600 leading-none text-2xl">i</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-black w-8 h-8 rounded-full border border-zinc-200 shadow-sm transition-opacity duration-200 group-hover:opacity-0">
+               
               </div>
               {/* Toggle icon shown on hover */}
               <button 
                 onClick={() => setIsCollapsed(false)}
-                className="absolute inset-0 flex items-center justify-center w-8 h-8 rounded-lg text-black opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
+                className="absolute inset-0 flex items-center justify-center w-8 h-8text-black opacity-0 hover:bg-zinc-100 rounded-full group-hover:opacity-100 transition-all duration-200 cursor-pointer"
               >
                 <Menu size={20} />
               </button>

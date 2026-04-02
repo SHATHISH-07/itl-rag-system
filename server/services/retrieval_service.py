@@ -10,7 +10,7 @@ from core.embeddings import model
 
 logger = logging.getLogger(__name__)
 
-def retrieve(query: str, filter_keyword: str = None, limit: int = 5, offset: int = 0):
+def retrieve(query: str, filter_keyword: str = None, limit: int = 10, offset: int = 0):
     logger.info(f"Starting hybrid retrieval for: '{query}'")
 
     embedding_key = make_cache_key("embedding", query)

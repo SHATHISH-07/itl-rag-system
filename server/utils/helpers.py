@@ -33,22 +33,31 @@ def chunk_text(text: str):
     text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
     text = re.sub(r'\s+', ' ', text).strip()
 
+    # 2. Initial tokenization
     tokenizer = PunktSentenceTokenizer()
-    sentences = tokenizer.tokenize(text)
+    raw_sentences = tokenizer.tokenize(text)
 
-    cleaned_sentences = [
-        re.sub(r'[\.\s_]{2,}$', '', s).strip()
-        for s in sentences
-        if len(s) > 5 and any(c.isalpha() for c in s)
-    ]
+    processed_sentences = []
+    temp_buffer = ""
+
+    for s in raw_sentences:
+        s = re.sub(r'[\.\s_]{2,}$', '', s).strip()
+        
+        if len(s.split()) < 5: 
+            temp_buffer += s + " "
+        else:
+            processed_sentences.append(temp_buffer + s)
+            temp_buffer = ""
+    
+    if temp_buffer and processed_sentences:
+        processed_sentences[-1] += " " + temp_buffer.strip()
 
     chunks = []
-    
-    STEP_SIZE = 15      
-    WINDOW_SIZE = 20  
+    WINDOW_SIZE = 10  
+    STEP_SIZE = 8     
 
-    for i in range(0, len(cleaned_sentences), STEP_SIZE):
-        window = cleaned_sentences[i:i + WINDOW_SIZE]
+    for i in range(0, len(processed_sentences), STEP_SIZE):
+        window = processed_sentences[i:i + WINDOW_SIZE]
         if not window:
             continue
 
@@ -56,10 +65,10 @@ def chunk_text(text: str):
         if len(chunk) > 0:
             chunks.append(chunk)
 
-        if i + WINDOW_SIZE >= len(cleaned_sentences):
+        if i + WINDOW_SIZE >= len(processed_sentences):
             break
   
-    logger.info(f"Optimized Chunking: {len(chunks)} chunks created")
+    logger.info(f"Refined Chunking: {len(chunks)} chunks created from {len(processed_sentences)} true sentences.")
     return chunks
 
 # Function to extract k from query

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Update your existing .rendered-html or prose classes */
 .rendered-html {
   font-size: 15px;
   line-height: 1.6;
@@ -18,14 +17,37 @@
   @apply list-disc ml-5 space-y-2 mb-4;
 }
 
-/* Specific styling for the message bubbles */
 .rounded-4xl {
   border-radius: 2rem;
 }
 
-/* Custom Scrollbar for better UI */
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #f1f1f4;
   border: 4px solid white;
   border-radius: 20px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;              
+  height: 8px;            
+}
+
+::-webkit-scrollbar-track {
+  background: #f4f4f5;     
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;     
+  border-radius: 10px;
+  border: 2px solid #f4f4f5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;      
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 #f4f4f5;
 }
