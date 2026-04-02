@@ -1,7 +1,8 @@
 import re
 import logging
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
+from typing import Optional # Add this import
 
 from services.rag_service import rag_pipeline
 from services.llm_service import generate_answer
@@ -9,11 +10,10 @@ from services.llm_service import generate_answer
 logger = logging.getLogger("rag_query")
 router = APIRouter()
 
-
 class QueryRequest(BaseModel):
     query: str
-    filter_keyword: str = None
-
+    # FIX: Use Optional and default to None to prevent 422 errors
+    filter_keyword: Optional[str] = None 
 
 @router.post("/query")
 async def query_rag(
@@ -22,34 +22,29 @@ async def query_rag(
     offset: int = Query(0, ge=0)
 ):
     clean_query = request.query.strip() if request.query else ""
-
     is_noise = not bool(re.search(r'[a-zA-Z0-9]', clean_query))
 
     if not clean_query or len(clean_query) < 3 or is_noise:
-        logger.warning(f"Blocked invalid query: '{clean_query}'")
-        return {
-            "query": request.query,
-            "answer": "Please provide a valid question.",
-            "total_matches": 0,
-            "metadata": {"sources": [], "status": "invalid_input"}
-        }
+        return {"answer": "Please provide a valid question."}
 
     try:
+        # Pass the optional keyword to the pipeline
         response = rag_pipeline(
             query=clean_query,
+            filter_keyword=request.filter_keyword,
             generate_answer_fn=lambda q, chunks: generate_answer(q, chunks)
         )
 
         return {
             "query": request.query,
             "answer": response.get("answer", ""),
-            "metadata": {"status": "success"}
+            "sources": response.get("sources", "None"),
+            "metadata": {
+                "status": "success",
+                "filter_applied": request.filter_keyword or "Global Search"
+            }
         }
 
     except Exception as e:
         logger.error(f"RAG Error: {str(e)}", exc_info=True)
-        return {
-            "query": request.query,
-            "answer": "Internal server error.",
-            "metadata": {"error": str(e)}
-        }
+        return {"answer": "Internal server error.", "metadata": {"error": str(e)}}

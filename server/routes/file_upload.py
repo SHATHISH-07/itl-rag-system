@@ -4,6 +4,7 @@ import os
 import logging
 import aiofiles
 from fastapi import APIRouter, UploadFile, File
+from db.qdrant_db import qdrant_client
 from services.ingestion_service import ingest_file
 from fastapi import HTTPException, status
 
@@ -56,3 +57,19 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
     logger.info("Upload Completed")
     return {"results": responses}
+
+
+@router.get("/list-files")
+async def list_files():
+    """Returns a list of all unique filenames currently in the system."""
+    try:
+        # Scroll retrieves points from the metadata collection
+        results = qdrant_client.scroll(
+            collection_name="file_metadata",
+            limit=100,
+            with_payload=True
+        )
+        filenames = [point.payload["filename"] for point in results[0]]
+        return {"files": sorted(filenames)}
+    except Exception as e:
+        return {"files": [], "error": str(e)}

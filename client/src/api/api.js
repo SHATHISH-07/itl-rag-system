@@ -8,6 +8,14 @@ export const uploadFiles = (formData) => api.post('/files/upload-files', formDat
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 
-export const askQuestion = (query) => api.post('/rag/query', { query });
+export const getFiles = () => api.get('/files/list-files');
+
+
+export const askQuestion = (query, filterKeyword = null) => {
+  return api.post('/rag/query', { 
+    query: query,
+    filter_keyword: filterKeyword 
+  });
+};
 
 export default api;
