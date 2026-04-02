@@ -26,7 +26,7 @@ function App() {
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-black shadow-sm shrink-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-black/80 shadow-sm shrink-0">
                  
                 </div>
               </div>
@@ -41,7 +41,7 @@ function App() {
             /* Using a fixed width container that matches the icon alignment of the nav buttons below */
             <div className="relative group w-8 h-8 flex items-center justify-center mx-auto">
               {/* Branding icon shown by default */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black w-8 h-8 rounded-full border border-zinc-200 shadow-sm transition-opacity duration-200 group-hover:opacity-0">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80 w-8 h-8 rounded-full border border-zinc-200 shadow-sm transition-opacity duration-200 group-hover:opacity-0">
                
               </div>
               {/* Toggle icon shown on hover */}

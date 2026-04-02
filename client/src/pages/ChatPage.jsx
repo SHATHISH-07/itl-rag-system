@@ -102,7 +102,7 @@ const ChatPage = ({ isCollapsed }) => {
                 <div className={`flex gap-4 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   {/* Avatar */}
                   <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm
-                    ${msg.role === 'user' ? 'bg-zinc-900 text-white' : 'bg-zinc-900 text-white'}`}>
+                    ${msg.role === 'user' ? 'bg-black/90 text-white' : 'bg-black/90 text-white'}`}>
                     {msg.role === 'user' ? <User size={20} /> : <BotMessageSquare size={20} />}
                   </div>
 
@@ -147,7 +147,7 @@ const ChatPage = ({ isCollapsed }) => {
       {/* Input Section */}
       <footer className="absolute bottom-0 right-0 left-0 bg-linear-to-t from-white via-white/95 to-transparent pt-10 pb-2 px-6 z-20">
         <div className="max-w-3xl mx-auto">
-          <div className="relative group flex items-end bg-zinc-100 rounded-4xl p-2.5 transition-all border border-zinc-200/50 focus-within:border-blue-300 focus-within:bg-white focus-within:shadow-2xl focus-within:shadow-blue-100/50">
+          <div className="relative group flex items-end bg-zinc-100 rounded-4xl p-2.5 transition-all border border-blue-200 focus-within:border-blue-300 focus-within:bg-white focus-within:shadow-2xl focus-within:shadow-blue-100/50">
             
             <button 
               onClick={() => setShowUploadModal(true)}
