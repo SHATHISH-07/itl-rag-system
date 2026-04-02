@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import { MessageSquare, UploadCloud, Menu } from 'lucide-react';
 import ChatPage from './pages/ChatPage';
 import UploadPage from './pages/UploadPage';
@@ -26,15 +26,15 @@ function App() {
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-white shadow-sm shrink-0">
-                  <span className="font-serif font-semibold text-zinc-600 leading-none text-xs">i</span>
+                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-zinc-200 bg-white shadow-sm shrink-0">
+                  <span className="font-serif font-normal text-zinc-600 leading-none text-2xl">i</span>
                 </div>
               </div>
               <button 
                 onClick={() => setIsCollapsed(true)}
                 className="p-1.5  rounded-lg text-black transition-colors cursor-pointer"
               >
-                <Menu size={18} />
+                <Menu size={20} />
               </button>
             </>
           ) : (
@@ -42,14 +42,14 @@ function App() {
             <div className="relative group w-8 h-8 flex items-center justify-center mx-auto">
               {/* Branding icon shown by default */}
               <div className="absolute inset-0 flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 bg-white shadow-sm transition-opacity duration-200 group-hover:opacity-0">
-                <span className="font-serif font-semibold text-zinc-600 leading-none text-xs">i</span>
+                <span className="font-serif font-normal text-zinc-600 leading-none text-2xl">i</span>
               </div>
               {/* Toggle icon shown on hover */}
               <button 
                 onClick={() => setIsCollapsed(false)}
                 className="absolute inset-0 flex items-center justify-center w-8 h-8 rounded-lg text-black opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
               >
-                <Menu size={16} />
+                <Menu size={20} />
               </button>
             </div>
           )}

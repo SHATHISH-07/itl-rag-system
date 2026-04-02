@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import  { useState, useEffect, useRef } from 'react';
 import { askQuestion } from '../api/api';
-import { Send, User, Bot, Plus, X, Loader2 } from 'lucide-react';
+import { Send, User, BotMessageSquare, Plus, X, Loader2 } from 'lucide-react';
 import UploadPage from './UploadPage';
 
 const ChatPage = ({ isCollapsed }) => {
@@ -103,7 +103,7 @@ const ChatPage = ({ isCollapsed }) => {
                   {/* Avatar */}
                   <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm
                     ${msg.role === 'user' ? 'bg-zinc-900 text-white' : 'bg-zinc-900 text-white'}`}>
-                    {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
+                    {msg.role === 'user' ? <User size={20} /> : <BotMessageSquare size={20} />}
                   </div>
 
                   {/* Message Content */}
