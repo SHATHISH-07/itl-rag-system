@@ -1,8 +1,8 @@
 import re
 import logging
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from typing import Optional # Add this import
+from typing import Optional
 
 from services.rag_service import rag_pipeline
 from services.llm_service import generate_answer
@@ -12,7 +12,6 @@ router = APIRouter()
 
 class QueryRequest(BaseModel):
     query: str
-    # FIX: Use Optional and default to None to prevent 422 errors
     filter_keyword: Optional[str] = None 
 
 @router.post("/query")
@@ -28,7 +27,6 @@ async def query_rag(
         return {"answer": "Please provide a valid question."}
 
     try:
-        # Pass the optional keyword to the pipeline
         response = rag_pipeline(
             query=clean_query,
             filter_keyword=request.filter_keyword,
