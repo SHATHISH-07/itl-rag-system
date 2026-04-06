@@ -1,13 +1,12 @@
-import re
 import logging
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
-
 from services.rag_service import rag_pipeline
 from services.llm_service import generate_answer
 
-logger = logging.getLogger("rag_query")
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 class QueryRequest(BaseModel):
@@ -15,16 +14,14 @@ class QueryRequest(BaseModel):
     filter_keyword: Optional[str] = None 
 
 @router.post("/query")
-async def query_rag(
-    request: QueryRequest,
-    limit: int = Query(5, ge=1, le=20),
-    offset: int = Query(0, ge=0)
-):
+async def query_rag(request: QueryRequest):
     clean_query = request.query.strip() if request.query else ""
-    is_noise = not bool(re.search(r'[a-zA-Z0-9]', clean_query))
-
-    if not clean_query or len(clean_query) < 3 or is_noise:
+    
+    if len(clean_query) < 3:
+        logger.warning(f"Short query: '{clean_query}'")
         return {"answer": "Please provide a valid question."}
+
+    logger.info(f"Query: '{clean_query}' | Filter: {request.filter_keyword or 'Global'}")
 
     try:
         response = rag_pipeline(
@@ -33,10 +30,17 @@ async def query_rag(
             generate_answer_fn=lambda q, chunks: generate_answer(q, chunks)
         )
 
+        final_answer = response.get("answer", "")
+        sources_list = response.get("sources", "None")
+
+        if sources_list != "None":
+            final_answer += f"<br/><br/><p><b>Sources:</b> {sources_list}</p>"
+
+        logger.info(f"Success: '{clean_query}'")
+
         return {
             "query": request.query,
-            "answer": response.get("answer", ""),
-            "sources": response.get("sources", "None"),
+            "answer": final_answer,
             "metadata": {
                 "status": "success",
                 "filter_applied": request.filter_keyword or "Global Search"
@@ -44,5 +48,8 @@ async def query_rag(
         }
 
     except Exception as e:
-        logger.error(f"RAG Error: {str(e)}", exc_info=True)
-        return {"answer": "Internal server error.", "metadata": {"error": str(e)}}
+        logger.error(f"Error: {str(e)}", exc_info=True)
+        return {
+            "answer": "Internal server error.", 
+            "metadata": {"status": "error"}
+        }

@@ -1,101 +1,62 @@
 import logging
 import json
-from uuid import uuid4
+import re
 from core.redis_client import redis_client
-from db.qdrant_db import qdrant_client, SEMANTIC_COLLECTION
 from services.retrieval_service import retrieve
-from utils.helpers import get_embedding, make_cache_key, EMBEDDING_DIM
-from qdrant_client.http import models
+from utils.helpers import make_cache_key, format_score
 
 logger = logging.getLogger(__name__)
-SIM_THRESHOLD = 0.90 
-
-def fix_collection_dim():
-    try:
-        info = qdrant_client.get_collection(SEMANTIC_COLLECTION)
-        if info.config.params.vectors.size != EMBEDDING_DIM:
-            qdrant_client.delete_collection(SEMANTIC_COLLECTION)
-            raise Exception()
-    except Exception:
-        qdrant_client.create_collection(
-            collection_name=SEMANTIC_COLLECTION,
-            vectors_config=models.VectorParams(
-                size=EMBEDDING_DIM, 
-                distance=models.Distance.COSINE
-            )
-        )
 
 def rag_pipeline(query: str, generate_answer_fn, filter_keyword: str = None):
-    fix_collection_dim()
-    
-    keyword = filter_keyword.strip() if filter_keyword else None
     query_clean = query.strip().lower()
-    
-    cache_suffix = f":{keyword}" if keyword else ":global"
+
+    cache_suffix = f":{filter_keyword}" if filter_keyword else ":global"
     exact_key = make_cache_key("exact", f"{query_clean}{cache_suffix}")
-    
     if redis_client:
         cached = redis_client.get(exact_key)
-        if cached: 
-            return json.loads(cached)
+        if cached: return json.loads(cached)
 
-    query_vector = get_embedding(query_clean)
-
-    if not keyword:
-        try:
-            results = qdrant_client.query_points(
-                collection_name=SEMANTIC_COLLECTION, 
-                query=query_vector, 
-                limit=1
-            )
-            if results.points and results.points[0].score >= SIM_THRESHOLD:
-                return results.points[0].payload["response"]
-        except:
-            pass
-
-    chunks, _ = retrieve(query_clean, filter_keyword=keyword)
-    
+    chunks, _ = retrieve(query_clean, filter_keyword=filter_keyword)
     if not chunks:
-        return {
-            "answer": "I don't know based on the provided context." if keyword else "I couldn't find any relevant information.",
-            "sources": "None"
-        }
+        return {"answer": "I don't know based on the provided context.", "sources": "None"}
 
-    top_score = chunks[0].get("score", 0)
-
-    if keyword and top_score < 0.55:
-        return {
-            "answer": "I don't know based on the provided context.",
-            "sources": "None"
-        }
-
-    if not keyword and top_score < 0.40:
-        return {
-            "answer": "I couldn't find any relevant information.",
-            "sources": "None"
-        }
-
-    answer = generate_answer_fn(query, chunks)
+    raw_answer = generate_answer_fn(query, chunks)
     
-    unique_sources = sorted(list(set(c.get("source") for c in chunks if c.get("source"))))
-    sources_str = ", ".join(unique_sources)
+    if "I don't know" in raw_answer:
+        return {"answer": raw_answer, "sources": "None"}
 
-    response = {"answer": answer, "sources": sources_str or "None"}
+    used_indices = set(re.findall(r"Doc (\d+)", raw_answer))
+    final_answer = raw_answer
+    used_sources_map = {}
+
+    for idx_str in sorted(used_indices, key=int, reverse=True):
+        idx = int(idx_str) - 1
+        if idx < len(chunks):
+            chunk = chunks[idx]
+            filename = chunk.get("source", "Unknown")
+            score = chunk.get("score", 0)
+            
+            if filename not in used_sources_map or score > used_sources_map[filename]:
+                used_sources_map[filename] = score
+
+            pattern = rf"\(?Source:\s?\[?Doc {idx_str}\]?\)?|\[Doc {idx_str}\]|Doc {idx_str}"
+            replacement = f"<b>({filename} | Relevance: {format_score(score)})</b>"
+            final_answer = re.sub(pattern, replacement, final_answer)
+
+    for filename in used_sources_map.keys():
+        esc_fn = re.escape(filename)
+        double_pattern = rf"<b>\({esc_fn}.*?\)</b>(,\s?|/|,\s?and\s?)<b>\({esc_fn}.*?\)</b>"
+        final_answer = re.sub(double_pattern, f"<b>({filename} | Relevance: {format_score(used_sources_map[filename])})</b>", final_answer)
+
+    summary_list = [f"{name} ({format_score(score)})" for name, score in used_sources_map.items()]
+    sources_str = ", ".join(summary_list) if summary_list else "None"
+
+    response = {
+        "answer": final_answer, 
+        "sources": sources_str
+    }
 
     if redis_client:
         redis_client.setex(exact_key, 3600, json.dumps(response))
     
-    if not keyword:
-        try:
-            qdrant_client.upsert(
-                collection_name=SEMANTIC_COLLECTION,
-                points=[models.PointStruct(
-                    id=str(uuid4()),
-                    vector=query_vector,
-                    payload={"query": query_clean, "response": response}
-                )]
-            )
-        except:
-            pass
-
     return response
