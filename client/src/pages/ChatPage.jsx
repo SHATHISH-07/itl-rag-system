@@ -1,249 +1,223 @@
 import { useState, useEffect, useRef } from 'react';
 import { askQuestion, getFiles } from '../api/api';
-import { Send, User, BotMessageSquare, X, FileText } from 'lucide-react';
+import { Send, User, BotMessageSquare, X, FileText, Globe, Search } from 'lucide-react';
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false); 
-  
+  const [isTyping, setIsTyping] = useState(false);
   const [availableFiles, setAvailableFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [showFileDropdown, setShowFileDropdown] = useState(false);
-  
   const scrollRef = useRef(null);
+  const chatContainerRef = useRef(null);
+
+  useEffect(() => { fetchFileList(); }, []);
 
   useEffect(() => {
-    fetchFileList();
-  }, []);
-
-  // Auto-scroll when messages change or loading starts
-  useEffect(() => {
-    if (loading || isTyping) {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop <= clientHeight + 200;
+      if (isNearBottom) {
         scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, [messages.length, loading]); 
+  }, [messages, isTyping]);
+
+  const getRelevance = (scoreStr) => {
+    const score = parseInt(scoreStr?.replace('%', '') || '0');
+    if (score >= 80) return { label: 'High', color: 'text-emerald-700 bg-emerald-100/50 border-emerald-200' };
+    if (score >= 50) return { label: 'Mid', color: 'text-amber-700 bg-amber-100/50 border-amber-200' };
+    return { label: 'Low', color: 'text-zinc-500 bg-zinc-100 border-zinc-200' };
+  };
 
   const fetchFileList = async () => {
     try {
       const res = await getFiles();
       setAvailableFiles(res.data.files || []);
-    } catch (e) {
-      console.error("Error fetching file list:", e);
-    }
-  };
-
-  /**
-   * Time-based typing simulation.
-   * This prevents the animation from pausing when the tab is in the background.
-   */
-  const simulateTyping = (fullText) => {
-    setIsTyping(true);
-    // Initialize the bot message entry
-    setMessages((prev) => [...prev, { role: 'bot', text: '', isTyping: true }]);
-    
-    const startTime = Date.now();
-    const charsPerSec = 120; // Adjust typing speed here
-
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const charIndex = Math.floor((elapsed / 1000) * charsPerSec);
-
-      setMessages((prev) => {
-        const updated = [...prev];
-        const lastMsg = updated[updated.length - 1];
-
-        if (charIndex < fullText.length) {
-          // Update text based on elapsed time (handles background tab throttling)
-          lastMsg.text = fullText.slice(0, charIndex + 1);
-          return [...updated];
-        } else {
-          // Animation complete
-          lastMsg.text = fullText;
-          lastMsg.isTyping = false;
-          setIsTyping(false);
-          clearInterval(interval);
-          return [...updated];
-        }
-      });
-    }, 25); // Check every 25ms
+    } catch (e) { console.error(e); }
   };
 
   const handleSend = async () => {
     if (!input.trim() || loading || isTyping) return;
-
     const userMsg = { role: 'user', text: input };
-    setMessages((prev) => [...prev, userMsg]);
-    
+    setMessages(prev => [...prev, userMsg]);
     const currentInput = input;
-    const currentFilter = selectedFile; 
-    
+    const currentFilter = selectedFile;
     setInput('');
     setLoading(true);
 
     try {
       const response = await askQuestion(currentInput, currentFilter);
       setLoading(false);
-      simulateTyping(response.data.answer);
+      simulateTyping(response.data.answer, response.data.metadata);
     } catch (error) {
       setLoading(false);
-      setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'bot',
-          text: "<div class='p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs'><strong>Error:</strong> Failed to get response.</div>"
-        }
-      ]);
+      setMessages(prev => [...prev, { role: 'bot', sections: [{ title: "Error", content: "The engine is currently unavailable." }] }]);
     }
   };
 
-  const isInputDisabled = loading || isTyping;
+  const simulateTyping = (answerArray, metadata) => {
+    if (!answerArray || !answerArray.length) return;
+
+    setIsTyping(true);
+    setMessages(prev => [...prev, {
+      role: 'bot',
+      sections: [],
+      isTyping: true,
+      scope: metadata?.filter_applied || 'Global',
+      sources: metadata?.global_sources || ''
+    }]);
+
+    let sIdx = 0, cIdx = 0;
+
+    const type = () => {
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+
+        // Ensure current section in answerArray exists
+        const currentTarget = answerArray[sIdx];
+        if (!currentTarget) return updated;
+
+        // Initialize section shell if missing
+        if (!last.sections[sIdx]) {
+          last.sections[sIdx] = { ...currentTarget, content: '' };
+        }
+
+        const fullContent = currentTarget.content || "";
+
+        if (cIdx < fullContent.length) {
+          last.sections[sIdx].content = fullContent.slice(0, cIdx + 1);
+          cIdx++;
+          setTimeout(type, 12);
+        } else if (sIdx < answerArray.length - 1) {
+          sIdx++;
+          cIdx = 0;
+          setTimeout(type, 200);
+        } else {
+          last.isTyping = false;
+          setIsTyping(false);
+        }
+        return updated;
+      });
+    };
+    type();
+  };
+
+  const renderContent = (content) => {
+    if (!content) return null;
+    
+    // Auto-detect comma lists involving "include" or "including"
+    if (content.toLowerCase().includes("include") && content.includes(",")) {
+      const parts = content.split(/include|including/i);
+      const intro = parts[0];
+      const items = parts[1].split(/,|\band\b/).map(item => item.trim().replace(/\.$/, ""));
+
+      return (
+        <>
+          <p className="mb-4">{intro} include:</p>
+          <ul className="space-y-2 mb-6">
+            {items.filter(item => item.length > 0).map((item, idx) => (
+              <li key={idx} className="flex items-start gap-3">
+                <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      );
+    }
+    return <p className="whitespace-pre-wrap">{content}</p>;
+  };
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-hidden">
-      
-      {/* Messages Area */}
-      <main className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-4xl mx-auto px-3 sm:px-6 pt-8 sm:pt-12 pb-44">
-          
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mb-3 tracking-tight">What are we Referring Today?</h2>
-              <p className="text-zinc-500 text-sm sm:text-md max-w-sm">Select a specific document from the list to narrow down the search.</p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-8 sm:gap-10">
+    <div className="flex flex-col h-full bg-[#FDFDFD] font-sans text-zinc-900 overflow-hidden relative">
+      <main ref={chatContainerRef} className="flex-1 overflow-y-auto bg-white">
+        <div className="max-w-4xl mx-auto px-4 md:px-10 py-12 pb-56">
+          <div className="space-y-12 md:space-y-16">
             {messages.map((msg, i) => (
-              <div 
-                key={i} 
-                className={`flex w-full animate-in fade-in slide-in-from-bottom-3 duration-300 ${
-                  msg.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
+              <div
+                key={i}
+                className={`flex flex-col md:flex-row gap-3 md:gap-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500 ${msg.role === 'user' ? 'md:flex-row-reverse' : ''}`}
               >
-                <div className={`flex flex-col sm:gap-4 ${
-                  msg.role === 'user' 
-                    ? 'items-end sm:flex-row-reverse w-[80%] sm:max-w-[50%] ml-auto' 
-                    : 'items-start sm:flex-row w-full sm:max-w-[85%]'
-                }`}>
-                  
-                  <div className={`h-8 w-8 sm:h-10 sm:w-10 mb-2 sm:mb-0 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                    msg.role === 'user' ? 'bg-black text-white' : 'bg-zinc-900 text-white'
-                  }`}>
+                <div className={`flex shrink-0 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center border ${msg.role === 'user' ? 'bg-zinc-50 border-zinc-200 text-zinc-500' : 'bg-zinc-900 border-zinc-900 text-white shadow-md'}`}>
                     {msg.role === 'user' ? <User size={16} /> : <BotMessageSquare size={16} />}
                   </div>
+                </div>
 
-                  <div className={`w-full rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-4 shadow-sm overflow-hidden ${
-                    msg.role === 'user' 
-                      ? 'bg-zinc-100 text-zinc-800' 
-                      : 'bg-white border border-zinc-100 text-zinc-800'
-                  }`}>
-                    {msg.role === 'bot' ? (
-                      <div 
-                        className="rendered-html max-w-none text-sm sm:text-[15px] leading-relaxed wrap-break-word" 
-                        dangerouslySetInnerHTML={{ __html: msg.text }} 
-                      />
-                    ) : (
-                      <p className="text-sm sm:text-[15px] font-normal leading-relaxed wrap-break-word text-right sm:text-left">
-                        {msg.text}
-                      </p>
-                    )}
-                  </div>
+                <div className={`flex flex-col w-full md:max-w-[85%] ${msg.role === 'user' ? 'md:items-end' : 'items-start'}`}>
+                  {msg.role === 'user' ? (
+                    <div className="bg-zinc-100/80 text-zinc-800 px-5 py-3 rounded-2xl md:rounded-tr-none text-base md:text-[17px] leading-relaxed border border-zinc-200/50 shadow-sm">
+                      {msg.text}
+                    </div>
+                  ) : (
+                    <div className="w-full space-y-10 md:space-y-12">
+                      {msg.sections?.map((section, sIdx) => {
+                        const rel = getRelevance(section.score || "0%");
+                        return (
+                          <div key={sIdx} className="group animate-in fade-in duration-700">
+                            <h2 className="text-lg md:text-xl font-black uppercase tracking-widest text-black mb-4 border-l-4 border-zinc-200 pl-4">
+                              {section.title}
+                            </h2>
+                            
+                            <div className="text-md md:text-lg leading-[1.8] text-zinc-800 font-normal">
+                              {renderContent(section.content)}
+                            </div>
+
+                            <div className="flex items-center gap-2 md:gap-3 flex-wrap mt-4">
+                              <div className="flex items-center gap-2.5 px-4 py-2 bg-zinc-50 border border-zinc-200/60 rounded-full shadow-sm hover:bg-white transition-colors">
+                                <FileText size={14} className="text-zinc-400" />
+                                <span className="text-xs md:text-sm font-semibold text-zinc-600 truncate max-w-62.5">
+                                  {section.source}
+                                </span>
+                              </div>
+                              <div className={`flex items-center px-4 py-2 rounded-full border text-[10px] md:text-[11px] font-black uppercase tracking-wider ${rel.color}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full mr-2 animate-pulse ${rel.color.split(' ')[0].replace('text', 'bg')}`} />
+                                {rel.label} Match • {section.score}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {!msg.isTyping && msg.sources && (
+                        <div className="pt-8 mt-6 border-t border-zinc-100 flex flex-wrap gap-4 md:gap-6 text-[10px] text-zinc-400 font-medium uppercase tracking-widest">
+                          <div className="flex items-center gap-2"><Search size={12} /> Scope: <span className="text-zinc-900">{msg.scope}</span></div>
+                          <div className="flex items-center gap-2"><Globe size={12} /> Citations: <span className="text-zinc-900">{msg.sources}</span></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
-
-            {loading && (
-              <div className="flex w-full justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex flex-col items-start sm:flex-row sm:gap-4 w-full sm:max-w-[85%]">
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 mb-2 sm:mb-0 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-zinc-900 text-white">
-                    <BotMessageSquare size={16} />
-                  </div>
-                  <div className="w-full sm:w-auto bg-white border border-zinc-100 rounded-2xl sm:rounded-3xl px-5 py-4 sm:px-6 sm:py-5 shadow-sm flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-zinc-300 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-zinc-300 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-zinc-300 rounded-full animate-bounce"></div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div ref={scrollRef} className="h-4" />
           </div>
-          <div ref={scrollRef} />
         </div>
       </main>
 
-      {/* Input Area */}
-      <footer className="absolute bottom-0 inset-x-0 bg-white/80 backdrop-blur-md pb-4 sm:pb-6 px-4 sm:px-6 z-20">
-        <div className="max-w-3xl mx-auto">
-          
-          {selectedFile && (
-            <div className="flex items-center gap-2 mb-1 animate-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold border border-blue-100 shadow-sm">
-                <FileText size={12} />
-                <span className="truncate max-w-37.5 sm:max-w-50">Context: {selectedFile}</span>
-                <button onClick={() => setSelectedFile(null)} className="ml-1 p-0.5 hover:bg-blue-200 rounded-full transition-colors cursor-pointer">
-                  <X size={12} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className={`relative group flex items-end bg-zinc-100 rounded-3xl sm:rounded-4xl p-1.5 sm:p-2 transition-all border border-blue-200 focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-2xl ${isInputDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
-            
-            <div className="relative">
-              <button 
-                disabled={isInputDisabled}
-                onClick={() => setShowFileDropdown(!showFileDropdown)}
-                className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer ${selectedFile ? 'text-blue-600 bg-blue-50' : 'text-zinc-400 hover:text-blue-600 hover:bg-blue-50'}`}
-              >
-                <FileText size={18} />
+      <footer className="absolute bottom-0 left-0 right-0 p-4 md:p-10 bg-linear-to-t from-white via-white/90 to-transparent pointer-events-none">
+        <div className="max-w-3xl mx-auto w-full pointer-events-auto">
+          <div className="bg-white border md:border-2 border-gray-300 rounded-4xl shadow-2xl p-1.5 md:p-2 focus-within:border-zinc-500 transition-all">
+            <div className="flex items-center gap-1 md:gap-2">
+              <button onClick={() => setShowFileDropdown(!showFileDropdown)} className="p-3 md:p-4 text-zinc-600 hover:text-zinc-900 relative">
+                <FileText size={20} />
               </button>
-
-              {showFileDropdown && (
-                <div className="absolute bottom-full left-0 mb-4 w-70 sm:w-72 bg-white rounded-2xl shadow-2xl border border-zinc-100 overflow-hidden z-50 animate-in fade-in zoom-in-95">
-                  <div className="p-3 border-b border-zinc-50 bg-zinc-50 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    Available Sources
-                  </div>
-                  <div className="max-h-60 sm:max-h-64 overflow-y-auto custom-scrollbar">
-                    <button 
-                      onClick={() => { setSelectedFile(null); setShowFileDropdown(false); }}
-                      className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-50 transition-colors border-b border-zinc-50 font-medium"
-                    >
-                      All Knowledge Base
-                    </button>
-                    {availableFiles.map((file) => (
-                      <button 
-                        key={file}
-                        onClick={() => { setSelectedFile(file); setShowFileDropdown(false); }}
-                        className={`w-full text-left px-4 py-3 text-sm hover:bg-zinc-50 transition-colors truncate ${selectedFile === file ? 'text-blue-600 bg-blue-50 font-bold' : 'text-zinc-600'}`}
-                      >
-                        {file}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <textarea
+                className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-base md:text-lg text-zinc-800 placeholder-zinc-600 resize-none max-h-32 min-h-11 font-medium"
+                rows="1"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask anything..."
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+              />
+              <button onClick={handleSend} disabled={!input.trim() || loading || isTyping} className="p-3 md:p-4 bg-zinc-900 text-white rounded-3xl disabled:opacity-70 shadow-lg">
+                <Send size={18} />
+              </button>
             </div>
-
-            <textarea
-              rows="1"
-              value={input}
-              disabled={isInputDisabled}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={isInputDisabled ? "AI is typing..." : (selectedFile ? `Ask about ${selectedFile}...` : "Ask anything...")}
-              className="w-full border-none outline-none bg-transparent px-2 sm:px-3 py-3 text-zinc-800 placeholder:text-zinc-500 resize-none min-h-11 max-h-48 text-sm sm:text-[15px] disabled:cursor-not-allowed"
-            />
-
-            <button
-              onClick={handleSend}
-              disabled={isInputDisabled || !input.trim()}
-              className="bg-zinc-900 text-white p-2.5 sm:p-3 rounded-full sm:rounded-4xl hover:bg-zinc-800 transition-all disabled:opacity-20 cursor-pointer shadow-lg active:scale-95"
-            >
-              <Send size={18} />
-            </button>
           </div>
         </div>
       </footer>

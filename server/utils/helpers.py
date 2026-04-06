@@ -164,16 +164,8 @@ def make_cache_key(prefix: str, text: str):
     return f"{prefix}:{hashlib.sha256(normalized.encode()).hexdigest()}"
 
 # Function to Format score into percentage and relevance label
-def format_score(score):
-    percentage = round(score * 100)
-    if score >= 0.85:
-        return f"{percentage}% - Highly Relevant"
-    elif score >= 0.60:
-        return f"{percentage}% - Relevant & Accurate"
-    elif score >= 0.35:
-        return f"{percentage}% - Partially Relevant"
-    else:
-        return f"{percentage}% - Low Relevance"
+def format_score(score: float) -> str:
+    return f"{int(score * 100)}%"
 
 # Function to get embedding with caching
 def get_embedding(query: str):
