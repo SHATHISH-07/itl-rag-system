@@ -187,3 +187,25 @@ def get_embedding(query: str):
     if redis_client:
         redis_client.setex(embedding_key, 3600, json.dumps(vector))
     return vector
+
+def enforce_section_citations(answer: str) -> str:
+    sections = re.split(r"(<h3>.*?</h3>)", answer)
+
+    fixed_output = ""
+    current_doc = "[Doc 1]"  # fallback
+
+    for part in sections:
+        if part.startswith("<h3>"):
+            fixed_output += part
+        else:
+            if "[Doc" not in part:
+                part += f"<br/><b>{current_doc}</b>"
+            else:
+                # extract last used doc for next fallback
+                docs = re.findall(r"\[Doc \d+\]", part)
+                if docs:
+                    current_doc = docs[-1]
+
+            fixed_output += part
+
+    return fixed_output

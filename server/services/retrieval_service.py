@@ -17,10 +17,9 @@ VECTOR_THRESHOLD_GLOBAL = 0.25
 FINAL_THRESHOLD_FILE = 0.25
 FINAL_THRESHOLD_GLOBAL = 0.30
 
-def retrieve(query: str, filter_keyword: str = None, limit: int = 8, offset: int = 0):
+def retrieve(query: str, filter_keyword: str = None, limit: int = 7, offset: int = 0):
     query_clean = query.strip().lower()
 
-    # --- 1. EMBEDDING CACHING ---
     embedding_key = make_cache_key("embedding", query_clean)
     query_vector = None
 
@@ -32,11 +31,8 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 8, offset: int
     if not query_vector:
         query_vector = model.encode([query_clean])[0].tolist()
         if redis_client:
-            # Cache embedding for 1 hour
             redis_client.setex(embedding_key, 3600, json.dumps(query_vector))
 
-    # --- 2. VECTOR/SEMANTIC RESULT CACHING ---
-    # This caches the post-reranked filtered results
     result_cache_key = make_cache_key("vector_results", f"{query_clean}:{filter_keyword or 'global'}")
     
     if redis_client:
@@ -90,7 +86,6 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 8, offset: int
     if not all_results:
         return [], 0
 
-    # --- 3. RERANKING LOGIC ---
     all_results = sorted(all_results, key=lambda x: x["vector_score"], reverse=True)
     candidate_pool = all_results[:40] 
 
@@ -127,7 +122,6 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 8, offset: int
     final_threshold = FINAL_THRESHOLD_FILE if filter_keyword else FINAL_THRESHOLD_GLOBAL
     filtered = [c for c in candidate_pool if c.get("score", 0) >= final_threshold]
 
-    # --- SAVE TO VECTOR RESULT CACHE ---
     if redis_client and filtered:
         cache_data = {"results": filtered, "total": len(filtered)}
         redis_client.setex(result_cache_key, 600, json.dumps(cache_data))
