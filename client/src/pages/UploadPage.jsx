@@ -43,7 +43,7 @@ const UploadPage = () => {
 
   return (
     /* Changed h-screen to min-h-screen and removed overflow-y-auto to stop double scrollbars */
-    <div className="min-h-screen w-full bg-white selection:bg-blue-100">
+    <div className="min-h-screen w-full bg-white selection:bg-gray-100">
       {/* Responsive padding: smaller on mobile (p-5), larger on desktop (md:p-16) */}
       <div className="max-w-2xl mx-auto p-5 sm:p-8 md:p-16">
         
@@ -64,8 +64,8 @@ const UploadPage = () => {
             onChange={handleFileChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div className="bg-zinc-50 border-2 border-zinc-200 rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center transition-all group-hover:bg-zinc-100 group-hover:border-blue-400 border-dashed">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-zinc-100 mb-4 group-hover:scale-110 transition-transform">
+          <div className="bg-zinc-50 border-2 border-zinc-200 rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center transition-all group-hover:bg-zinc-100 group-hover:border-gray-400 border-dashed">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl flex items-center justify-center text-gray-600 shadow-sm border border-zinc-100 mb-4 group-hover:scale-110 transition-transform">
               <Upload size={22} />
             </div>
             <p className="text-zinc-900 font-semibold text-base md:text-lg text-center">Click or drag files to upload</p>
@@ -85,7 +85,7 @@ const UploadPage = () => {
               {files.map((file, idx) => (
                 <div key={idx} className="flex items-center justify-between bg-white border border-zinc-100 p-3 md:p-4 rounded-2xl shadow-sm hover:border-zinc-200 transition-colors">
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0">
+                    <div className="p-2 bg-gray-50 text-gray-600 rounded-lg shrink-0">
                       <FileText size={16} />
                     </div>
                     <div className="overflow-hidden">
@@ -114,7 +114,7 @@ const UploadPage = () => {
           <button 
             onClick={handleUpload}
             disabled={loading || files.length === 0}
-            className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-base hover:bg-blue-600 active:scale-[0.98] transition-all disabled:opacity-20 disabled:cursor-not-allowed shadow-xl shadow-zinc-200 disabled:shadow-none flex items-center justify-center gap-3"
+            className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-base cursor-pointer hover:bg-gray-600 active:scale-[0.98] transition-all disabled:opacity-20 disabled:cursor-not-allowed shadow-xl shadow-zinc-200 disabled:shadow-none flex items-center justify-center gap-3"
           >
             {loading ? (
               <>
