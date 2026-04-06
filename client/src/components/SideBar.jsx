@@ -1,4 +1,3 @@
-import React from 'react';
 import { MessageSquare, UploadCloud, Menu, X } from 'lucide-react';
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, activeTab, setActiveTab, isMobileOpen, setIsMobileOpen }) => {
@@ -20,7 +19,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, activeTab, setActiveTab, isMobil
         {isExpanded && (
           <div className="flex items-center gap-3">
             {/* Logo Placeholder */}
-            <div className="w-8 h-8 rounded-full bg-black/10 border border-zinc-200 shadow-sm" />
+            <div className="w-8 h-8 rounded-full bg-black/70 border border-zinc-200 shadow-sm" />
           </div>
         )}
         <button 
@@ -33,7 +32,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, activeTab, setActiveTab, isMobil
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-2">
+      <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => (
           <button
             key={item.id}

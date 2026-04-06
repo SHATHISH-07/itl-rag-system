@@ -6,6 +6,7 @@ const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); 
   
   const [availableFiles, setAvailableFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -17,9 +18,12 @@ const ChatPage = () => {
     fetchFileList();
   }, []);
 
+  // Auto-scroll when messages change or loading starts
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    if (loading || isTyping) {
+        scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, loading]); 
 
   const fetchFileList = async () => {
     try {
@@ -30,30 +34,44 @@ const ChatPage = () => {
     }
   };
 
+  /**
+   * Time-based typing simulation.
+   * This prevents the animation from pausing when the tab is in the background.
+   */
   const simulateTyping = (fullText) => {
+    setIsTyping(true);
+    // Initialize the bot message entry
     setMessages((prev) => [...prev, { role: 'bot', text: '', isTyping: true }]);
-    let index = 0;
-    const speed = 2;
+    
+    const startTime = Date.now();
+    const charsPerSec = 120; // Adjust typing speed here
 
     const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const charIndex = Math.floor((elapsed / 1000) * charsPerSec);
+
       setMessages((prev) => {
         const updated = [...prev];
         const lastMsg = updated[updated.length - 1];
-        if (index < fullText.length) {
-          lastMsg.text = fullText.slice(0, index + 1);
-          index++;
-          return updated;
+
+        if (charIndex < fullText.length) {
+          // Update text based on elapsed time (handles background tab throttling)
+          lastMsg.text = fullText.slice(0, charIndex + 1);
+          return [...updated];
         } else {
+          // Animation complete
+          lastMsg.text = fullText;
           lastMsg.isTyping = false;
+          setIsTyping(false);
           clearInterval(interval);
-          return updated;
+          return [...updated];
         }
       });
-    }, speed);
+    }, 25); // Check every 25ms
   };
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || isTyping) return;
 
     const userMsg = { role: 'user', text: input };
     setMessages((prev) => [...prev, userMsg]);
@@ -70,6 +88,7 @@ const ChatPage = () => {
       simulateTyping(response.data.answer);
     } catch (error) {
       setLoading(false);
+      setIsTyping(false);
       setMessages((prev) => [
         ...prev,
         {
@@ -80,9 +99,12 @@ const ChatPage = () => {
     }
   };
 
+  const isInputDisabled = loading || isTyping;
+
   return (
     <div className="flex flex-col h-full bg-white relative overflow-hidden">
       
+      {/* Messages Area */}
       <main className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-4xl mx-auto px-3 sm:px-6 pt-8 sm:pt-12 pb-44">
           
@@ -101,20 +123,18 @@ const ChatPage = () => {
                   msg.role === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
-                {/* Mobile: w-full (Full width)
-                   Desktop: sm:max-w-[85%] (Restricted width)
-                */}
-                <div className={`flex flex-col sm:gap-4 w-full sm:max-w-[85%] ${
-                  msg.role === 'user' ? 'items-end sm:flex-row-reverse' : 'items-start sm:flex-row'
+                <div className={`flex flex-col sm:gap-4 ${
+                  msg.role === 'user' 
+                    ? 'items-end sm:flex-row-reverse w-[80%] sm:max-w-[50%] ml-auto' 
+                    : 'items-start sm:flex-row w-full sm:max-w-[85%]'
                 }`}>
                   
                   <div className={`h-8 w-8 sm:h-10 sm:w-10 mb-2 sm:mb-0 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
                     msg.role === 'user' ? 'bg-black text-white' : 'bg-zinc-900 text-white'
                   }`}>
-                    {msg.role === 'user' ? <User size={16} className="sm:w-4.5" /> : <BotMessageSquare size={16} className="sm:w-4.5" />}
+                    {msg.role === 'user' ? <User size={16} /> : <BotMessageSquare size={16} />}
                   </div>
 
-                  {/* Bubble: Added w-full so it expands to the container width */}
                   <div className={`w-full rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-4 shadow-sm overflow-hidden ${
                     msg.role === 'user' 
                       ? 'bg-zinc-100 text-zinc-800' 
@@ -126,7 +146,7 @@ const ChatPage = () => {
                         dangerouslySetInnerHTML={{ __html: msg.text }} 
                       />
                     ) : (
-                      <p className="text-sm sm:text-[15px] font-normal leading-relaxed wrap-break-word">
+                      <p className="text-sm sm:text-[15px] font-normal leading-relaxed wrap-break-word text-right sm:text-left">
                         {msg.text}
                       </p>
                     )}
@@ -135,7 +155,6 @@ const ChatPage = () => {
               </div>
             ))}
 
-            {/* --- LOADING BUBBLE (Full width on mobile) --- */}
             {loading && (
               <div className="flex w-full justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex flex-col items-start sm:flex-row sm:gap-4 w-full sm:max-w-[85%]">
@@ -155,14 +174,14 @@ const ChatPage = () => {
         </div>
       </main>
 
-      {/* Input Footer */}
+      {/* Input Area */}
       <footer className="absolute bottom-0 inset-x-0 bg-white/80 backdrop-blur-md pb-4 sm:pb-6 px-4 sm:px-6 z-20">
         <div className="max-w-3xl mx-auto">
           
           {selectedFile && (
             <div className="flex items-center gap-2 mb-1 animate-in slide-in-from-bottom-2">
               <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold border border-blue-100 shadow-sm">
-                <FileText size={12} className="sm:w-3.5" />
+                <FileText size={12} />
                 <span className="truncate max-w-37.5 sm:max-w-50">Context: {selectedFile}</span>
                 <button onClick={() => setSelectedFile(null)} className="ml-1 p-0.5 hover:bg-blue-200 rounded-full transition-colors cursor-pointer">
                   <X size={12} />
@@ -171,15 +190,15 @@ const ChatPage = () => {
             </div>
           )}
 
-          <div className="relative group flex items-end bg-zinc-100 rounded-3xl sm:rounded-4xl p-1.5 sm:p-2 transition-all border border-blue-200 focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-2xl">
+          <div className={`relative group flex items-end bg-zinc-100 rounded-3xl sm:rounded-4xl p-1.5 sm:p-2 transition-all border border-blue-200 focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-2xl ${isInputDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
             
             <div className="relative">
               <button 
+                disabled={isInputDisabled}
                 onClick={() => setShowFileDropdown(!showFileDropdown)}
                 className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer ${selectedFile ? 'text-blue-600 bg-blue-50' : 'text-zinc-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                title="Select source file"
               >
-                <FileText size={18} className="sm:w-5" />
+                <FileText size={18} />
               </button>
 
               {showFileDropdown && (
@@ -211,15 +230,16 @@ const ChatPage = () => {
             <textarea
               rows="1"
               value={input}
+              disabled={isInputDisabled}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={selectedFile ? `Ask about ${selectedFile}...` : "Ask anything..."}
-              className="w-full border-none outline-none bg-transparent px-2 sm:px-3 py-3 text-zinc-800 placeholder:text-zinc-500 resize-none min-h-11 max-h-48 text-sm sm:text-[15px]"
+              placeholder={isInputDisabled ? "AI is typing..." : (selectedFile ? `Ask about ${selectedFile}...` : "Ask anything...")}
+              className="w-full border-none outline-none bg-transparent px-2 sm:px-3 py-3 text-zinc-800 placeholder:text-zinc-500 resize-none min-h-11 max-h-48 text-sm sm:text-[15px] disabled:cursor-not-allowed"
             />
 
             <button
               onClick={handleSend}
-              disabled={loading || !input.trim()}
+              disabled={isInputDisabled || !input.trim()}
               className="bg-zinc-900 text-white p-2.5 sm:p-3 rounded-full sm:rounded-4xl hover:bg-zinc-800 transition-all disabled:opacity-20 cursor-pointer shadow-lg active:scale-95"
             >
               <Send size={18} />
