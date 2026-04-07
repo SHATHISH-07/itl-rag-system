@@ -5,66 +5,68 @@ from core.llm_client import client, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
-def is_procedural_query(query: str):
-    keywords = ["how", "steps", "procedure", "make", "prepare", "recipe", "guide", "instructions", "process"]
-    return any(k in query.lower() for k in keywords)
-
 def generate_answer(query: str, retrieved_chunks: list):
     if not retrieved_chunks:
-        return {"status": "no_relevant_data", "answer": "I don't know based on the provided context."}
+        return {"status": "no_relevant_data"}
 
-    context_blocks = []
-    for i, c in enumerate(retrieved_chunks, start=1):
-        source_name = c.get('source', 'Unknown Document')
-        text_content = c.get('text', '').strip()
-        context_blocks.append(f"[ID: {i}] SOURCE: {source_name}\nCONTENT: {text_content}")
-
-    context = "\n\n".join(context_blocks)
+    # Pass the top 10 chunks to the LLM to ensure it has enough material for 5+ results
+    sorted_chunks = sorted(retrieved_chunks, key=lambda x: x.get("score", 0), reverse=True)
+    context = "\n\n".join([
+        f"[ID: {i+1}] SOURCE: {c.get('source')}\nCONTENT: {c.get('text')}"
+        for i, c in enumerate(sorted_chunks[:10])
+    ])
 
     prompt = f"""
-You are a precise technical synthesizer. Your goal is to summarize the provided DOCUMENTS to answer the USER QUERY.
+You are an Expert Historical Analyst. Your goal is to synthesize the USER QUERY using the provided DOCUMENTS.
 
 USER QUERY: "{query}"
 
 DOCUMENTS:
 {context}
 
-RULES:
-1. CONCISE SUMMARY: Each "content" field must be exactly 4 to 5 sentences long. Avoid long-winded "walls of text."
-2. DIRECTNESS: Get straight to the point. Every sentence must provide unique, factual value from the document.
-3. CITATION: Mention the [ID: number] within the narrative flow of your summary.
-4. JSON ONLY: Do not provide any conversational text before or after the JSON array.
+CRITICAL ALIGNMENT RULES:
+1. SEMANTIC RE-RANKING: The order of the JSON array MUST be based on relevance to the QUERY, not the retrieval score. Place the document that best explains the "Why" and "Causes" at index 0.
+2. TITLE RELEVANCE: The "title" field MUST be a concise, query-specific analytical heading that captures the core insight of the document in relation to the query. It should NOT be a generic title or a direct copy from the source. the title should match the query about 90% of the time.
+3. NO FILLER: If a document is about late-war events (like the 1917 blockade), explain it as a 'Secondary Factor' or discard it if it provides zero insight into the war's causes.
+4. SCORE PRESERVATION: Keep the original "score" value in the JSON, but do NOT use it to determine the list order. The list order is determined by Query-Relevance.
+5. EXACT BREVITY: Each "content" section MUST be exactly 3 sentences. 
 
-EXPECTED JSON STRUCTURE:
+EXPECTED JSON STRUCTURE (ONLY):
 [
   {{
     "doc_id": number,
-    "title": "Short, Descriptive Heading",
-    "content": "A high-density summary consisting of exactly 4 to 5 professional sentences based on this document.",
-    "source": "filename from the doc source",
-    "score": "0-100%"
+    "title": "Query-Specific Analytical Heading",
+    "content": "Exactly three sentences of factual synthesis.",
+    "source": "filename",
+    "score": "Original % score from context"
   }}
 ]
 """
-
     try:
-        response = client.chat.completions.create(
+        res = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
-                {"role": "system", "content": "You are a specialized JSON agent that provides dense, 4-5 sentence summaries of technical text."},
+                {"role": "system", "content": "You are a JSON-only analyst who provides diverse, query-specific answers."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.15
+            temperature=0
         )
 
-        raw = response.choices[0].message.content
-        match = re.search(r'(\[.*\]|\{.*\})', raw, re.DOTALL)
-        if not match: 
-            raise ValueError("No JSON detected in LLM output")
-            
-        clean = re.sub(r"[\x00-\x1F\x7F]", " ", match.group(0))
-        return json.loads(clean)
+        raw = res.choices[0].message.content
+        match = re.search(r'(\[.*\])', raw, re.DOTALL)
+        if not match: return {"status": "error"}
+
+        results = json.loads(match.group(0))
+
+        # Re-map scores accurately
+        for r in results:
+            idx = int(r.get("doc_id", 1)) - 1
+            if 0 <= idx < len(sorted_chunks):
+                score = sorted_chunks[idx].get("score", 0)
+                r["score"] = f"{int(score * 100)}%"
+
+        return results
 
     except Exception as e:
-        logger.error(f"LLM error: {e}")
-        return {"status": "error", "answer": f"LLM failed: {str(e)}"}
+        logger.error(f"LLM Error: {e}")
+        return {"status": "error"}

@@ -45,7 +45,6 @@ const ChatPage = () => {
     try {
       const response = await askQuestion(currentInput, currentFilter, currentTopK);
       setLoading(false);
-      // Pass the WHOLE data object so we have access to .metadata
       simulateTyping(response.data); 
     } catch (error) {
       setLoading(false);
@@ -56,37 +55,48 @@ const ChatPage = () => {
     }
   };
 
+  // --- UPDATED TYPING EFFECT (SMOOTH & ORGANIC) ---
   const simulateTyping = (data) => {
     const answerArray = data.responses || data.answer;
-    const metadata = data.metadata; // Catch the metadata here!
+    const metadata = data.metadata;
 
     if (!answerArray?.length) return;
     setIsTyping(true);
 
-    // Save the metadata to the message object immediately
     setMessages(prev => [...prev, { 
       role: 'bot', 
       sections: [], 
-      metadata: metadata, // Store it here
+      metadata: metadata, 
       isTyping: true 
     }]);
 
     let sIdx = 0, cIdx = 0;
+    
     const type = () => {
       setMessages(prev => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (!last || !answerArray[sIdx]) return updated;
-        if (!last.sections[sIdx]) last.sections[sIdx] = { ...answerArray[sIdx], content: '' };
+        
+        if (!last.sections[sIdx]) {
+          last.sections[sIdx] = { ...answerArray[sIdx], content: '' };
+        }
         
         const fullContent = answerArray[sIdx].content || "";
+        
         if (cIdx < fullContent.length) {
-          last.sections[sIdx].content = fullContent.slice(0, cIdx + 1);
-          cIdx++;
-          setTimeout(type, 10);
+          // Type characters in small chunks (1-3 chars) for a smoother "streaming" feel
+          const charsToAppend = Math.min(Math.floor(Math.random() * 2) + 1, fullContent.length - cIdx);
+          last.sections[sIdx].content = fullContent.slice(0, cIdx + charsToAppend);
+          cIdx += charsToAppend;
+          
+          // Speed: ~30ms base + random jitter
+          setTimeout(type, 25 + Math.random() * 20);
         } else if (sIdx < answerArray.length - 1) {
-          sIdx++; cIdx = 0;
-          setTimeout(type, 150);
+          sIdx++; 
+          cIdx = 0;
+          // Natural pause between sections
+          setTimeout(type, 350); 
         } else {
           last.isTyping = false;
           setIsTyping(false);
@@ -106,29 +116,11 @@ const ChatPage = () => {
 
   const renderContent = (content) => {
     if (!content) return null;
-    if (content.toLowerCase().includes("include") && content.includes(",")) {
-      const parts = content.split(/include|including/i);
-      const items = parts[1].split(/,|\band\b/).map(item => item.trim().replace(/\.$/, ""));
-      return (
-        <React.Fragment>
-          <p className="mb-4">{parts[0]} include:</p>
-          <ul className="space-y-2 mb-6">
-            {items.filter(i => i.length > 0).map((item, idx) => (
-              <li key={idx} className="flex items-start gap-3">
-                <span className="mt-2 w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </React.Fragment>
-      );
-    }
     return <p className="whitespace-pre-wrap">{content}</p>;
   };
 
   return (
     <div className="flex flex-col h-screen font-sans text-zinc-900 overflow-hidden relative w-full">
-
       <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
          <MessageList 
             messages={messages} 
@@ -142,7 +134,7 @@ const ChatPage = () => {
 
       <footer className="sticky bottom-10 w-full z-40 px-4 md:px-6 lg:px-10 pb-6 md:pb-10 pointer-events-none">
         <div className="max-w-3xl mx-auto w-full pointer-events-auto">
-        
+          
           <div className="flex justify-between items-end px-2 mb-2 gap-2">
             <div className="flex-1 min-w-0">
               {selectedFile && (
@@ -154,15 +146,10 @@ const ChatPage = () => {
                 </div>
               )}
             </div>
-            <TopKSettings 
-              topK={topK} 
-              setTopK={setTopK} 
-              showSettings={showSettings} 
-              setShowSettings={setShowSettings} 
-            />
+            <TopKSettings topK={topK} setTopK={setTopK} showSettings={showSettings} setShowSettings={setShowSettings} />
           </div>
 
-          <div className="bg-white border border-zinc-200 md:border-2 rounded-3xl md:rounded-[2.5rem]  p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-zinc-400">
+          <div className="bg-white border border-zinc-200 md:border-2 rounded-3xl md:rounded-[2.5rem] p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-zinc-400">
             <FileSelector 
               showFileDropdown={showFileDropdown} 
               setShowFileDropdown={setShowFileDropdown} 
@@ -172,8 +159,9 @@ const ChatPage = () => {
             />
 
             <textarea
-              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-lg text-zinc-800 placeholder-zinc-400 resize-none max-h-32 min-h-11 font-medium leading-tight"
-              rows="1"
+              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-lg text-zinc-800 placeholder-zinc-400 resize-none font-medium leading-tight h-18 md:h-auto"
+              rows="1" 
+              style={{ minHeight: window.innerWidth < 768 ? '4.5rem' : 'auto' }}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={selectedFile ? "Search in file..." : "Ask anything..."}

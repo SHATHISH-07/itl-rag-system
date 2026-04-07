@@ -1,15 +1,14 @@
-import React from 'react';
-import { SlidersHorizontal, Minus, Plus } from 'lucide-react';
+import {  Minus, Plus } from 'lucide-react';
 
 const TopKSettings = ({ topK, setTopK, showSettings, setShowSettings }) => {
   return (
     <div className="relative">
       <button 
         onClick={() => setShowSettings(!showSettings)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all ${showSettings ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400'}`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] md:text-[11px] font-bold tracking-widest transition-all ${showSettings ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400'}`}
       >
-        <SlidersHorizontal size={12} />
-        <span className="hidden xs:inline">Top-K:</span> {topK}
+       
+        <span>Top Selection :</span> {topK}
       </button>
 
       {showSettings && (
