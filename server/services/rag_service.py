@@ -1,6 +1,5 @@
 import logging
 from services.retrieval_service import retrieve
-from utils.helpers import format_score
 
 logger = logging.getLogger(__name__)
 
@@ -9,42 +8,46 @@ def rag_pipeline(query: str, generate_answer_fn, filter_keyword: str = None, top
     
     if not chunks:
         return {
-            "responses": [], 
-            "sources": "None", 
-            "message": "No matching information found in the database."
+            "query": query,
+            "responses": [{"title": "Not Found", "content": "No data in database.", "source": "N/A", "score": "0%"}],
+            "sources": "None"
         }
 
-    raw_sections = generate_answer_fn(query, chunks)
+    llm_sections = generate_answer_fn(query, chunks)
 
-    if isinstance(raw_sections, dict) and raw_sections.get("status") == "no_relevant_data":
-        return {"responses": [], "sources": "None", "message": raw_sections.get("answer")}
+    if not llm_sections or (len(llm_sections) == 1 and llm_sections[0].get("doc_id") == 0):
+        return {
+            "query": query,
+            "responses": [{"title": "Not Found", "content": "Information not in context.", "source": "N/A", "score": "0%"}],
+            "sources": "None"
+        }
 
     final_answer_list = []
     source_tracker = {}
 
-    sections = raw_sections if isinstance(raw_sections, list) else [raw_sections]
-
-    for idx, section in enumerate(sections):
+    for section in llm_sections:
         try:
-            doc_id = section.get("doc_id")
-            chunk_idx = (int(doc_id) - 1) if doc_id is not None else idx
-            
-            if 0 <= chunk_idx < len(chunks):
-                chunk = chunks[chunk_idx]
-                fname = chunk.get("source", "Unknown")
-                fscore = chunk.get("score", 0)
+            idx = int(section.get("doc_id", 0)) - 1
+            if 0 <= idx < len(chunks):
+                chunk = chunks[idx]
+                name = chunk.get("source", "Unknown")
+                score = chunk.get("score", 0)
 
                 final_answer_list.append({
-                    "title": section.get("title", "Analysis"),
-                    "content": section.get("content", ""),
-                    "source": fname,
-                    "score": format_score(fscore)
+                    "title": section.get("title"),
+                    "content": section.get("content"),
+                    "source": name,
+                    "score": f"{int(score * 100)}%"
                 })
-                source_tracker[fname] = max(fscore, source_tracker.get(fname, 0))
-        except Exception as e:
-            logger.error(f"Mapping error: {e}")
+                source_tracker[name] = max(score, source_tracker.get(name, 0))
+        except:
+            continue
+
+    if not final_answer_list:
+        return {"query": query, "responses": [{"title": "Error", "content": "Processing failed.", "source": "N/A", "score": "0%"}], "sources": "None"}
 
     return {
+        "query": query,
         "responses": final_answer_list,
-        "sources": ", ".join([f"{k} ({format_score(v)})" for k, v in source_tracker.items()])
+        "sources": ", ".join([f"{k} ({int(v*100)}%)" for k, v in source_tracker.items()])
     }
