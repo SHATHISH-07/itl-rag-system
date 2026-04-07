@@ -1,18 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { User, BotMessageSquare, ChevronRight, Layout  } from 'lucide-react';
+import { User, BotMessageSquare, ChevronRight, Layout } from 'lucide-react';
 
 const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, loading }) => {
-  // Track message length to trigger scroll only on new messages
-  const prevMsgLength = useRef(messages.length);
-
-  useEffect(() => {
-    // Only scroll if the number of messages has increased (Send button clicked)
-    if (messages.length > prevMsgLength.current) {
-      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-    prevMsgLength.current = messages.length;
-  }, [messages, scrollRef]);
-
   const renderContent = (text) => {
     if (!text) return null;
     const segments = text.split(/(?<=[.!?])\s+/);
@@ -26,7 +15,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
           const hasListStructure = trimmed.includes(':') || (trimmed.match(/,/g) || []).length > 2;
           const parts = trimmed.split(/:\s*/);
           const introText = parts[0];
-          const listItems = parts[1] 
+          const listItems = parts[1]
             ? parts[1].split(/,|\band\b/).map(i => i.trim().replace(/[.]$/, '')).filter(i => i.length > 0)
             : [];
 
@@ -65,8 +54,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
   return (
     <main ref={chatContainerRef} className="flex-1 overflow-y-auto bg-white scroll-smooth">
       <div className="max-w-4xl mx-auto px-4 py-6 md:px-8 md:py-12 space-y-10 md:space-y-16 h-full">
-        
-        {/* Placeholder text when no messages exist */}
+
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-in fade-in zoom-in duration-700 pt-20">
             <div className="space-y-1">
@@ -80,9 +68,8 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
 
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col md:flex-row gap-3 md:gap-8 ${msg.role === 'user' ? 'md:flex-row-reverse items-end md:items-start' : 'items-start'}`}>
-            <div className={`w-10 h-10 md:w-12 md:h-12 flex shrink-0 items-center justify-center rounded-xl border-2 shadow-sm ${
-              msg.role === 'user' ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-zinc-900 border-zinc-900 text-white'
-            }`}>
+            <div className={`w-10 h-10 md:w-12 md:h-12 flex shrink-0 items-center justify-center rounded-xl border-2 shadow-sm ${msg.role === 'user' ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-zinc-900 border-zinc-900 text-white'
+              }`}>
               {msg.role === 'user' ? <User size={20} /> : <BotMessageSquare size={20} />}
             </div>
 
@@ -98,27 +85,39 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
                     return (
                       <div key={sIdx} className="relative w-full">
                         <div className="flex items-center gap-3 mb-4">
-                           <div className="h-5 w-1 bg-zinc-900 rounded-full" />
-                           <h2 className="text-lg md:text-xl font-black text-zinc-900 tracking-tight uppercase">{section.title}</h2>
+                          <div className="h-5 w-1 bg-zinc-900 rounded-full" />
+                          <h2 className="text-lg md:text-xl font-black text-zinc-900 tracking-tight uppercase">{section.title}</h2>
                         </div>
                         <div className="md:pl-4">{renderContent(section.content)}</div>
-                        <div className="flex flex-wrap items-center gap-3 mt-4 md:pl-4">
-                          <div className={`px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider ${rel.color}`}>
+
+                        <div className="flex flex-wrap items-center gap-3 mt-5 md:pl-4">
+                          <div className={`px-2 py-1 rounded-md border text-[9px] font-semibold tracking-wider ${rel.color}`}>
                             {rel.label} Match • {section.score}
                           </div>
+
+                          {section.source && (
+                            <div className="inline-flex items-center gap-2 px-2 py-1 bg-zinc-50 border border-zinc-200 rounded-md">
+                              <span className='text-[9px] font-bold text-zinc-500  tracking-tight'>Source:</span>
+                              <span className="text-[9px] font-bold text-zinc-700 truncate max-w-37.5">{section.source}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
                   })}
 
-                  {msg.metadata && (
-                    <div>
-                      <div className="flex flex-col gap-4">
-                        <div className="space-y-2">
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg">
-                            <span className='text-xs font-bold text-zinc-500 uppercase tracking-tight'>Global Source :</span>
-                            <span className="text-xs font-bold text-zinc-700">{msg.metadata.global_sources}</span>
-                          </div>
+                  {msg.metadata?.global_sources && (
+                    <div className="pt-6 border-t border-zinc-100">
+                      <div className="flex flex-col gap-2">
+                        <span className='text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1'>Sources</span>
+                        <div className="flex flex-wrap gap-2">
+                          {msg.metadata.global_sources.split(',').map((source, idx) => (
+                            <div key={idx} className="px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md shadow-sm">
+                              <span className="text-xs font-bold text-zinc-700 break-all">
+                                {source.trim()}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -138,7 +137,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
             </div>
           </div>
         )}
-        <div ref={scrollRef} className="h-10" />
+        <div ref={scrollRef} className="h-4" />
       </div>
     </main>
   );

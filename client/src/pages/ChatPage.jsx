@@ -135,13 +135,13 @@ const ChatPage = () => {
             <div className="flex-1 min-w-0">
               {selectedFile && (
                 <div className="inline-flex items-center gap-2.5 px-3.5 py-1 
-      bg-gray-50/80 backdrop-blur-md 
-      text-gray-700 rounded-2xl text-[12px] font-semibold tracking-wider
-      border border-gray-200 
-      hover:border-gray-400 hover:bg-gray-100/50
-      max-w-full shadow-[0_4px_12px_-4px_rgba(16,185,129,0.2)] 
-      transition-all duration-300 group
-      animate-in fade-in slide-in-from-bottom-2">
+ bg-gray-50/80 backdrop-blur-md 
+ text-gray-700 rounded-2xl text-[12px] font-semibold tracking-wider
+ border border-gray-200 
+ hover:border-gray-400 hover:bg-gray-100/50
+ max-w-full shadow-[0_4px_12px_-4px_rgba(16,185,129,0.2)] 
+ transition-all duration-300 group
+ animate-in fade-in slide-in-from-bottom-2">
                   <span className="truncate max-w-37.5 md:max-w-50">
                     {selectedFile}
                   </span>
