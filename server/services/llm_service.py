@@ -33,6 +33,7 @@ STRICT ANALYTICAL PIPELINE:
    - Follow with two supporting factual sentences.
 4. CHRONOLOGICAL FILTER: If a document describes 1917 or 1918 (late-war), you must explicitly frame it as a "long-term consequence" or "pre-existing tension" to make it relevant to the 'Causes' query.
 5. NO REPETITION: If two documents say the same thing, merge the best facts into one entry or discard the weaker one.
+6. In the Final Response if the retrived chunk is of 7 then the final answer should be 7 entries, if the retrived chunk is of 5 then the final answer should be 5 entries and so on. The final answer should not be more than the retrived chunk or less than the retrived chunk.
 
 EXPECTED JSON STRUCTURE:
 [
