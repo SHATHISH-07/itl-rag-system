@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import  { useState, useEffect, useRef } from 'react';
 import { askQuestion, getFiles } from '../api/api';
 import { Send, X } from 'lucide-react';
 import MessageList from '../components/MessageList';
@@ -55,7 +55,6 @@ const ChatPage = () => {
     }
   };
 
-  // --- UPDATED TYPING EFFECT (SMOOTH & ORGANIC) ---
   const simulateTyping = (data) => {
     const answerArray = data.responses || data.answer;
     const metadata = data.metadata;
@@ -85,17 +84,14 @@ const ChatPage = () => {
         const fullContent = answerArray[sIdx].content || "";
         
         if (cIdx < fullContent.length) {
-          // Type characters in small chunks (1-3 chars) for a smoother "streaming" feel
           const charsToAppend = Math.min(Math.floor(Math.random() * 2) + 1, fullContent.length - cIdx);
           last.sections[sIdx].content = fullContent.slice(0, cIdx + charsToAppend);
           cIdx += charsToAppend;
           
-          // Speed: ~30ms base + random jitter
           setTimeout(type, 25 + Math.random() * 20);
         } else if (sIdx < answerArray.length - 1) {
           sIdx++; 
           cIdx = 0;
-          // Natural pause between sections
           setTimeout(type, 350); 
         } else {
           last.isTyping = false;
@@ -109,7 +105,7 @@ const ChatPage = () => {
 
   const getRelevance = (scoreStr) => {
     const score = parseInt(scoreStr?.replace('%', '') || '0');
-    if (score >= 80) return { label: 'High', color: 'text-emerald-700 bg-emerald-100/50 border-emerald-200' };
+    if (score >= 70) return { label: 'High', color: 'text-emerald-700 bg-emerald-100/50 border-emerald-200' };
     if (score >= 50) return { label: 'Mid', color: 'text-amber-700 bg-amber-100/50 border-amber-200' };
     return { label: 'Low', color: 'text-zinc-500 bg-zinc-100 border-zinc-200' };
   };
@@ -159,7 +155,7 @@ const ChatPage = () => {
             />
 
             <textarea
-              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-lg text-zinc-800 placeholder-zinc-400 resize-none font-medium leading-tight h-18 md:h-auto"
+              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-[16px] text-zinc-900 placeholder-zinc-400 resize-none font-medium leading-tight h-18 md:h-auto"
               rows="1" 
               style={{ minHeight: window.innerWidth < 768 ? '4.5rem' : 'auto' }}
               value={input}

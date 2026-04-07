@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 def generate_answer(query: str, retrieved_chunks: list):
     if not retrieved_chunks:
         return {"status": "no_relevant_data"}
-
-    # Pass the top 10 chunks to the LLM to ensure it has enough material for 5+ results
+    
     sorted_chunks = sorted(retrieved_chunks, key=lambda x: x.get("score", 0), reverse=True)
     context = "\n\n".join([
         f"[ID: {i+1}] SOURCE: {c.get('source')}\nCONTENT: {c.get('text')}"
