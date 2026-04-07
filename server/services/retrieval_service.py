@@ -1,25 +1,30 @@
 import logging
 import json
 import numpy as np
+import redis
 from concurrent.futures import ThreadPoolExecutor
 from rank_bm25 import BM25Okapi
 from db.qdrant_db import qdrant_client
 from core.reranker import reranker
 from core.embeddings import model
 from utils.helpers import get_collection_name
+from core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
-FINAL_THRESHOLD_GLOBAL = 0.38 
+CACHE_EXPIRATION = 3600  # 1 hour
 
-def safe_normalize(scores):
-    if len(scores) == 0: return np.array([])
-    s_min, s_max = np.min(scores), np.max(scores)
-    if s_max == s_min: return np.ones_like(scores)
-    return (scores - s_min) / (s_max - s_min)
+FINAL_THRESHOLD_GLOBAL = 0.38 
 
 def retrieve(query: str, filter_keyword: str = None, limit: int = 7):
     query_clean = query.strip().lower()
+    
+    cache_key = f"retrieval:{query_clean}:{filter_keyword or 'global'}"
+    cached_data = redis_client.get(cache_key)
+    if cached_data:
+        logger.info(f"Redis Cache Hit for retrieval: {query_clean}")
+        return json.loads(cached_data), 0 # Returning cached list
+
     query_vec = model.encode([query_clean])[0].tolist()
     all_results = []
     
@@ -39,21 +44,16 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 7):
 
     if not all_results: return [], 0
 
+    # Deduplication & Scoring logic...
     seen = set()
-    dedup = []
-    for r in all_results:
-        text = r.get("text", "").strip()
-        if text and text not in seen:
-            seen.add(text)
-            dedup.append(r)
-
+    dedup = [r for r in all_results if not (r.get("text") in seen or seen.add(r.get("text")))]
+    
     corpus = [c.get("text", "").lower() for c in dedup]
     bm25 = BM25Okapi([doc.split() for doc in corpus])
-    
     bm_scores = safe_normalize(bm25.get_scores(query_clean.split()))
     v_scores = safe_normalize(np.array([c.get("vector_score", 0) for c in dedup]))
 
-    top_indices = np.argsort((v_scores * 0.4) + (bm_scores * 0.6))[::-1][:25]
+    top_indices = np.argsort((v_scores * 0.4) + (bm_scores * 0.6))[::-1][:20]
     ce_inputs = [[query_clean, corpus[i]] for i in top_indices]
     
     ce_scores_raw = reranker.predict(ce_inputs)
@@ -62,14 +62,19 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 7):
     final_candidates = []
     for i, idx in enumerate(top_indices):
         final_score = (ce_scores[i] * 0.7) + (bm_scores[idx] * 0.2) + (v_scores[idx] * 0.1)
-        
-        if ce_scores_raw[i] < -8.0: 
-            continue
-
+        if ce_scores_raw[i] < -8.0: continue
         if final_score >= FINAL_THRESHOLD_GLOBAL:
             chunk = dedup[idx]
             chunk["score"] = round(float(final_score), 4)
             final_candidates.append(chunk)
 
-    sorted_results = sorted(final_candidates, key=lambda x: x["score"], reverse=True)
-    return sorted_results[:limit], len(sorted_results)
+    sorted_results = sorted(final_candidates, key=lambda x: x["score"], reverse=True)[:limit]
+
+    redis_client.setex(cache_key, CACHE_EXPIRATION, json.dumps(sorted_results))
+    
+    return sorted_results, len(final_candidates)
+
+def safe_normalize(scores):
+    if len(scores) == 0: return np.array([])
+    s_min, s_max = np.min(scores), np.max(scores)
+    return (scores - s_min) / (s_max - s_min) if s_max > s_min else np.ones_like(scores)
