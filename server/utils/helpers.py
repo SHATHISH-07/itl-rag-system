@@ -165,7 +165,7 @@ def make_cache_key(prefix: str, text: str):
 
 # Function to Format score into percentage and relevance label
 def format_score(score: float) -> str:
-    return f"{int(score * 100)}%"
+    return f"{int(round(score * 100))}%"
 
 # Function to get embedding with caching
 def get_embedding(query: str):

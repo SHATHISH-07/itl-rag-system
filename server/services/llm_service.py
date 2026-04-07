@@ -5,80 +5,66 @@ from core.llm_client import client, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
-def generate_answer(query: str, retrieved_chunks: list) -> list:
-    if not retrieved_chunks:
-        return []
+def is_procedural_query(query: str):
+    keywords = ["how", "steps", "procedure", "make", "prepare", "recipe", "guide", "instructions", "process"]
+    return any(k in query.lower() for k in keywords)
 
-    # Prepare context: include the source directly so the LLM can map it easily
+def generate_answer(query: str, retrieved_chunks: list):
+    if not retrieved_chunks:
+        return {"status": "no_relevant_data", "answer": "I don't know based on the provided context."}
+
     context_blocks = []
     for i, c in enumerate(retrieved_chunks, start=1):
-        source_name = c.get('metadata', {}).get('source', 'Unknown Document')
+        source_name = c.get('source', 'Unknown Document')
         text_content = c.get('text', '').strip()
-        context_blocks.append(f"[Doc {i}] SOURCE: {source_name}\nCONTENT: {text_content}")
-    
+        context_blocks.append(f"[ID: {i}] SOURCE: {source_name}\nCONTENT: {text_content}")
+
     context = "\n\n".join(context_blocks)
 
-    # Simplified, Strict Prompt
     prompt = f"""
-### ROLE
-You are a Precise Data Extraction Engine. 
+You are a precise technical synthesizer. Your goal is to summarize the provided DOCUMENTS to answer the USER QUERY.
 
-### INPUT DATA
 USER QUERY: "{query}"
-NUMBER OF CHUNKS: {len(retrieved_chunks)}
 
 DOCUMENTS:
 {context}
 
-### TASK
-Analyze each [Doc X] and return a JSON array containing EXACTLY {len(retrieved_chunks)} objects.
+RULES:
+1. CONCISE SUMMARY: Each "content" field must be exactly 4 to 5 sentences long. Avoid long-winded "walls of text."
+2. DIRECTNESS: Get straight to the point. Every sentence must provide unique, factual value from the document.
+3. CITATION: Mention the [ID: number] within the narrative flow of your summary.
+4. JSON ONLY: Do not provide any conversational text before or after the JSON array.
 
-### JSON SCHEMA
+EXPECTED JSON STRUCTURE:
 [
   {{
-    "title": "A unique 3-5 word noun phrase describing the SPECIFIC TOPIC of this chunk (e.g. 'Space Seed Germination', '19th Century Tea Trade')",
-    "content": "A concise summary of what this specific document contains regarding the topic.",
-    "source": "The exact filename from the SOURCE field",
-    "score": "0-100% based on relevance to the query",
-    "doc_id": X
+    "doc_id": number,
+    "title": "Short, Descriptive Heading",
+    "content": "A high-density summary consisting of exactly 4 to 5 professional sentences based on this document.",
+    "source": "filename from the doc source",
+    "score": "0-100%"
   }}
 ]
-
-### STRICT RULES
-1. **UNIQUE TITLES**: Do NOT use 'Irrelevant Document', 'Step-by-Step', or the user's query as a title. Identify the unique subject of the text.
-2. **NO NEGATIVES**: Do not start with 'Unfortunately' or 'The document doesn't say'. Just state what information IS there.
-3. **1:1 MAPPING**: You must process every document provided. Ensure 'doc_id' matches the [Doc X] number.
-4. **CLEAN OUTPUT**: Return ONLY the raw JSON array. No markdown blocks, no intro text, no explanations.
 """
 
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
-                {
-                    "role": "system", 
-                    "content": "You are a JSON extraction tool. You provide unique, descriptive titles for data chunks and avoid generic responses."
-                },
+                {"role": "system", "content": "You are a specialized JSON agent that provides dense, 4-5 sentence summaries of technical text."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0
+            temperature=0.15
         )
 
-        raw_content = response.choices[0].message.content
-        
-        # Strip potential markdown backticks
-        clean_json = re.sub(r"```json|```", "", raw_content).strip()
-        
-        # Remove any non-printable control characters that break JSON parsing
-        clean_json = re.sub(r"[\x00-\x1F\x7F]", " ", clean_json)
-        
-        data = json.loads(clean_json)
-        
-        if isinstance(data, list):
-            return data
-        return []
+        raw = response.choices[0].message.content
+        match = re.search(r'(\[.*\]|\{.*\})', raw, re.DOTALL)
+        if not match: 
+            raise ValueError("No JSON detected in LLM output")
+            
+        clean = re.sub(r"[\x00-\x1F\x7F]", " ", match.group(0))
+        return json.loads(clean)
 
     except Exception as e:
-        logger.error(f"LLM Processing Error: {str(e)}")
-        # Return a safe fallback if parsing fails
-        return []
+        logger.error(f"LLM error: {e}")
+        return {"status": "error", "answer": f"LLM failed: {str(e)}"}

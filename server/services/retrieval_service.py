@@ -1,129 +1,105 @@
 import logging
 import json
-from concurrent.futures import ThreadPoolExecutor
 import numpy as np
-
+from concurrent.futures import ThreadPoolExecutor
 from rank_bm25 import BM25Okapi
 from core.redis_client import redis_client
 from db.qdrant_db import qdrant_client
 from core.reranker import reranker
-from utils.helpers import make_cache_key, format_score, get_collection_name
+from utils.helpers import make_cache_key, get_collection_name, format_score
 from core.embeddings import model
 
 logger = logging.getLogger(__name__)
 
-VECTOR_THRESHOLD_FILE = 0.30
-VECTOR_THRESHOLD_GLOBAL = 0.25
-FINAL_THRESHOLD_FILE = 0.25
-FINAL_THRESHOLD_GLOBAL = 0.30
+FINAL_THRESHOLD_GLOBAL = 0.40 
+
+def safe_normalize(scores):
+    """Normalizes scores to a 0.0 - 1.0 range safely."""
+    if len(scores) == 0:
+        return np.array([])
+    s_min, s_max = np.min(scores), np.max(scores)
+    if s_max == s_min:
+        return np.ones_like(scores) 
+    return (scores - s_min) / (s_max - s_min)
 
 def retrieve(query: str, filter_keyword: str = None, limit: int = 7, offset: int = 0):
     query_clean = query.strip().lower()
-
-    embedding_key = make_cache_key("embedding", query_clean)
-    query_vector = None
-
-    if redis_client:
-        cached_vec = redis_client.get(embedding_key)
-        if cached_vec:
-            query_vector = json.loads(cached_vec)
-
-    if not query_vector:
-        query_vector = model.encode([query_clean])[0].tolist()
-        if redis_client:
-            redis_client.setex(embedding_key, 3600, json.dumps(query_vector))
-
-    result_cache_key = make_cache_key("vector_results", f"{query_clean}:{filter_keyword or 'global'}")
+    
+    # FIX: Include 'limit' in cache key so k=3 and k=7 don't collide
+    cache_id = f"{query_clean}:{filter_keyword or 'global'}:k{limit}"
+    result_cache_key = make_cache_key("v_res", cache_id)
     
     if redis_client:
-        cached_results = redis_client.get(result_cache_key)
-        if cached_results:
-            data = json.loads(cached_results)
-            return data["results"], data["total"]
+        cached = redis_client.get(result_cache_key)
+        if cached:
+            data = json.loads(cached)
+            # Slice results to strictly respect current limit
+            return data["results"][:limit], data["total"]
 
+    # 1. Vector Search
+    query_vector = model.encode([query_clean])[0].tolist()
     all_results = []
-
+    
     try:
         if filter_keyword:
-            collection_name = get_collection_name(filter_keyword)
-            results = qdrant_client.query_points(
-                collection_name=collection_name,
-                query=query_vector,
-                limit=40 
-            )
-            threshold = VECTOR_THRESHOLD_FILE
-            all_results = [
-                {**dict(r.payload), "vector_score": float(r.score), "source": r.payload.get("source")}
-                for r in results.points if r.payload and float(r.score) >= threshold
-            ]
+            collections = [{"name": get_collection_name(filter_keyword)}]
         else:
-            collections = [
-                col for col in qdrant_client.get_collections().collections
-                if col.name not in ["file_metadata", "semantic_cache"]
-            ]
-            threshold = VECTOR_THRESHOLD_GLOBAL
+            collections = [col for col in qdrant_client.get_collections().collections 
+                          if col.name not in ["file_metadata", "semantic_cache"]]
 
-            def query_collection(col):
-                try:
-                    res = qdrant_client.query_points(
-                        collection_name=col.name,
-                        query=query_vector,
-                        limit=25
-                    )
-                    return [
-                        {**dict(r.payload), "vector_score": float(r.score), "source": r.payload.get("source")}
-                        for r in res.points if r.payload and float(r.score) >= threshold
-                    ]
-                except: return []
+        def search_col(col_obj):
+            col_name = col_obj.name if hasattr(col_obj, 'name') else col_obj['name']
+            try:
+                res = qdrant_client.query_points(
+                    collection_name=col_name, 
+                    query=query_vector, 
+                    limit=25 # Retrieve slightly more for better reranking
+                )
+                return [{**dict(r.payload), "vector_score": max(0.0, min(1.0, float(r.score)))} for r in res.points]
+            except Exception as e: 
+                logger.error(f"Search failed in {col_name}: {e}")
+                return []
 
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                for r in executor.map(query_collection, collections):
-                    all_results.extend(r)
+        with ThreadPoolExecutor(max_workers=5) as exec:
+            for r in exec.map(search_col, collections):
+                all_results.extend(r)
     except Exception as e:
-        logger.error(f"Retrieval Error: {e}")
+        logger.error(f"Retrieval error: {e}")
         return [], 0
 
-    if not all_results:
-        return [], 0
+    if not all_results: return [], 0
 
-    all_results = sorted(all_results, key=lambda x: x["vector_score"], reverse=True)
-    candidate_pool = all_results[:40] 
-
-    corpus = [r.get("text", "") for r in candidate_pool]
-    if not corpus: return [], 0
-
-    tokenized_corpus = [doc.lower().split() for doc in corpus]
-    bm25 = BM25Okapi(tokenized_corpus)
+    # 2. Score Calculation & Hybrid Ranking
+    # Filter unique chunks and take top 40 for reranking
+    candidate_pool = sorted(all_results, key=lambda x: x["vector_score"], reverse=True)[:40]
+    corpus = [c.get("text", "") for c in candidate_pool]
+    
+    # BM25 Component
+    bm25 = BM25Okapi([d.lower().split() for d in corpus])
     bm_scores = bm25.get_scores(query_clean.split())
-    
-    bm_max = np.max(bm_scores) if np.any(bm_scores) else 1.0
-    bm_norm = [s / bm_max for s in bm_scores]
+    bm_norm = safe_normalize(bm_scores)
 
-    rerank_limit = min(15, len(candidate_pool))
-    ce_inputs = [[query_clean, corpus[i]] for i in range(rerank_limit)]
-    ce_scores_raw = reranker.predict(ce_inputs)
-    
-    ce_max = np.max(ce_scores_raw) if len(ce_scores_raw) > 0 else 1.0
-    ce_norm = [s / ce_max for s in ce_scores_raw]
+    # Cross-Encoder Component (Reranker)
+    rerank_count = min(15, len(candidate_pool))
+    ce_scores = reranker.predict([[query_clean, corpus[i]] for i in range(rerank_count)])
+    ce_norm = safe_normalize(ce_scores)
 
+    # Final Hybrid Score Calculation
     for i in range(len(candidate_pool)):
         vec = candidate_pool[i]["vector_score"]
         bm = bm_norm[i]
-        if i < rerank_limit:
-            ce = ce_norm[i]
-            score = (ce * 0.50) + (bm * 0.30) + (vec * 0.20)
-        else:
-            score = (bm * 0.60) + (vec * 0.40) * 0.8 
+        ce = ce_norm[i] if i < rerank_count else 0
+        
+        # Calculation: 50% Reranker, 30% BM25, 20% Vector
+        raw_score = (ce * 0.50) + (bm * 0.30) + (vec * 0.20)
+        candidate_pool[i]["score"] = round(float(raw_score), 4)
 
-        candidate_pool[i]["score"] = round(min(score, 1.0), 4)
-        candidate_pool[i]["relevance_label"] = format_score(candidate_pool[i]["score"])
+    # 3. Final Filtering & Sorting
+    filtered = [c for c in candidate_pool if c.get("score", 0) >= FINAL_THRESHOLD_GLOBAL]
+    filtered = sorted(filtered, key=lambda x: x["score"], reverse=True)
 
-    candidate_pool = sorted(candidate_pool, key=lambda x: x["score"], reverse=True)
-    final_threshold = FINAL_THRESHOLD_FILE if filter_keyword else FINAL_THRESHOLD_GLOBAL
-    filtered = [c for c in candidate_pool if c.get("score", 0) >= final_threshold]
-
+    # 4. Cache & Return
     if redis_client and filtered:
-        cache_data = {"results": filtered, "total": len(filtered)}
-        redis_client.setex(result_cache_key, 600, json.dumps(cache_data))
+        redis_client.setex(result_cache_key, 600, json.dumps({"results": filtered, "total": len(filtered)}))
 
-    return filtered[offset: offset + limit], len(filtered)
+    return filtered[offset : offset + limit], len(filtered)
