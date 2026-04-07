@@ -1,6 +1,17 @@
-import { User, BotMessageSquare, ChevronRight } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { User, BotMessageSquare, ChevronRight, Layout  } from 'lucide-react';
 
 const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, loading }) => {
+  // Track message length to trigger scroll only on new messages
+  const prevMsgLength = useRef(messages.length);
+
+  useEffect(() => {
+    // Only scroll if the number of messages has increased (Send button clicked)
+    if (messages.length > prevMsgLength.current) {
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMsgLength.current = messages.length;
+  }, [messages, scrollRef]);
 
   const renderContent = (text) => {
     if (!text) return null;
@@ -53,18 +64,28 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
 
   return (
     <main ref={chatContainerRef} className="flex-1 overflow-y-auto bg-white scroll-smooth">
-      <div className="max-w-4xl mx-auto px-4 py-6 md:px-8 md:py-12 space-y-10 md:space-y-16">
+      <div className="max-w-4xl mx-auto px-4 py-6 md:px-8 md:py-12 space-y-10 md:space-y-16 h-full">
+        
+        {/* Placeholder text when no messages exist */}
+        {messages.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-in fade-in zoom-in duration-700 pt-20">
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold text-zinc-900 uppercase tracking-tight">Ready to Search?</h1>
+              <p className="text-sm text-zinc-500 font-normal max-w-xs">
+                Upload your documents or ask a question to begin the retrieval process.
+              </p>
+            </div>
+          </div>
+        )}
+
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col md:flex-row gap-3 md:gap-8 ${msg.role === 'user' ? 'md:flex-row-reverse items-end md:items-start' : 'items-start'}`}>
-            
-            {/* Avatar */}
             <div className={`w-10 h-10 md:w-12 md:h-12 flex shrink-0 items-center justify-center rounded-xl border-2 shadow-sm ${
               msg.role === 'user' ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-zinc-900 border-zinc-900 text-white'
             }`}>
               {msg.role === 'user' ? <User size={20} /> : <BotMessageSquare size={20} />}
             </div>
 
-            {/* Content Container */}
             <div className={`flex-1 w-full md:w-auto flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               {msg.role === 'user' ? (
                 <div className="max-w-[95%] md:max-w-[85%] bg-gray-100/50 border border-zinc-200/50 p-4 md:p-5 rounded-2xl md:rounded-3xl md:rounded-tr-none text-zinc-800 text-sm md:text-base font-bold shadow-sm">
@@ -72,7 +93,6 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
                 </div>
               ) : (
                 <div className="w-full space-y-12">
-
                   {msg.sections?.map((section, sIdx) => {
                     const rel = getRelevance(section.score || "0%");
                     return (
@@ -91,18 +111,15 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
                     );
                   })}
 
-                  {/* BOTTOM METADATA SECTION */}
                   {msg.metadata && (
-                    <div >
+                    <div>
                       <div className="flex flex-col gap-4">
                         <div className="space-y-2">
-                          
                           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg">
-                            <span className='text-xs font-bold'>Global Source :</span>
+                            <span className='text-xs font-bold text-zinc-500 uppercase tracking-tight'>Global Source :</span>
                             <span className="text-xs font-bold text-zinc-700">{msg.metadata.global_sources}</span>
                           </div>
                         </div>
-
                       </div>
                     </div>
                   )}

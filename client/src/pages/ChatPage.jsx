@@ -1,4 +1,4 @@
-import  { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { askQuestion, getFiles } from '../api/api';
 import { Send, X } from 'lucide-react';
 import MessageList from '../components/MessageList';
@@ -31,26 +31,26 @@ const ChatPage = () => {
 
   const handleSend = async () => {
     if (!input.trim() || loading || isTyping) return;
-    
+
     const userMsg = { role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
-    
+
     const currentInput = input;
     const currentFilter = selectedFile;
     const currentTopK = topK;
-    
+
     setInput('');
     setLoading(true);
 
     try {
       const response = await askQuestion(currentInput, currentFilter, currentTopK);
       setLoading(false);
-      simulateTyping(response.data); 
+      simulateTyping(response.data);
     } catch (error) {
       setLoading(false);
-      setMessages(prev => [...prev, { 
-        role: 'bot', 
-        sections: [{ title: "Error", content: "Service currently unavailable." }] 
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        sections: [{ title: "Error", content: "Service currently unavailable." }]
       }]);
     }
   };
@@ -62,37 +62,37 @@ const ChatPage = () => {
     if (!answerArray?.length) return;
     setIsTyping(true);
 
-    setMessages(prev => [...prev, { 
-      role: 'bot', 
-      sections: [], 
-      metadata: metadata, 
-      isTyping: true 
+    setMessages(prev => [...prev, {
+      role: 'bot',
+      sections: [],
+      metadata: metadata,
+      isTyping: true
     }]);
 
     let sIdx = 0, cIdx = 0;
-    
+
     const type = () => {
       setMessages(prev => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (!last || !answerArray[sIdx]) return updated;
-        
+
         if (!last.sections[sIdx]) {
           last.sections[sIdx] = { ...answerArray[sIdx], content: '' };
         }
-        
+
         const fullContent = answerArray[sIdx].content || "";
-        
+
         if (cIdx < fullContent.length) {
           const charsToAppend = Math.min(Math.floor(Math.random() * 2) + 1, fullContent.length - cIdx);
           last.sections[sIdx].content = fullContent.slice(0, cIdx + charsToAppend);
           cIdx += charsToAppend;
-          
+
           setTimeout(type, 25 + Math.random() * 20);
         } else if (sIdx < answerArray.length - 1) {
-          sIdx++; 
+          sIdx++;
           cIdx = 0;
-          setTimeout(type, 350); 
+          setTimeout(type, 350);
         } else {
           last.isTyping = false;
           setIsTyping(false);
@@ -118,26 +118,40 @@ const ChatPage = () => {
   return (
     <div className="flex flex-col h-screen font-sans text-zinc-900 overflow-hidden relative w-full">
       <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
-         <MessageList 
-            messages={messages} 
-            renderContent={renderContent} 
-            getRelevance={getRelevance} 
-            scrollRef={scrollRef} 
-            chatContainerRef={chatContainerRef} 
-            loading={loading} 
-          />
+        <MessageList
+          messages={messages}
+          renderContent={renderContent}
+          getRelevance={getRelevance}
+          scrollRef={scrollRef}
+          chatContainerRef={chatContainerRef}
+          loading={loading}
+        />
       </div>
 
       <footer className="sticky bottom-10 w-full z-40 px-4 md:px-6 lg:px-10 pb-6 md:pb-10 pointer-events-none">
         <div className="max-w-3xl mx-auto w-full pointer-events-auto">
-          
+
           <div className="flex justify-between items-end px-2 mb-2 gap-2">
             <div className="flex-1 min-w-0">
               {selectedFile && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-900 text-white rounded-xl text-[10px] font-bold uppercase border border-zinc-700 max-w-full shadow-lg animate-in fade-in slide-in-from-bottom-2">
-                  <span className="truncate">{selectedFile}</span>
-                  <button onClick={() => setSelectedFile(null)} className="hover:text-red-400 transition-colors">
-                    <X size={12}/>
+                <div className="inline-flex items-center gap-2.5 px-3.5 py-1 
+      bg-gray-50/80 backdrop-blur-md 
+      text-gray-700 rounded-2xl text-[12px] font-semibold tracking-wider
+      border border-gray-200 
+      hover:border-gray-400 hover:bg-gray-100/50
+      max-w-full shadow-[0_4px_12px_-4px_rgba(16,185,129,0.2)] 
+      transition-all duration-300 group
+      animate-in fade-in slide-in-from-bottom-2">
+                  <span className="truncate max-w-37.5 md:max-w-50">
+                    {selectedFile}
+                  </span>
+
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="p-1 -mr-1 rounded-full hover:bg-white/80 hover:text-red-500 transition-all duration-200"
+                    title="Clear Filter"
+                  >
+                    <X size={12} strokeWidth={3} />
                   </button>
                 </div>
               )}
@@ -145,29 +159,29 @@ const ChatPage = () => {
             <TopKSettings topK={topK} setTopK={setTopK} showSettings={showSettings} setShowSettings={setShowSettings} />
           </div>
 
-          <div className="bg-white border border-zinc-200 md:border-2 rounded-3xl md:rounded-[2.5rem] p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-zinc-400">
-            <FileSelector 
-              showFileDropdown={showFileDropdown} 
-              setShowFileDropdown={setShowFileDropdown} 
-              selectedFile={selectedFile} 
-              setSelectedFile={setSelectedFile} 
-              availableFiles={availableFiles} 
+          <div className="bg-white border border-zinc-300 md:border-2 rounded-3xl md:rounded-[2.5rem] p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-black/80">
+            <FileSelector
+              showFileDropdown={showFileDropdown}
+              setShowFileDropdown={setShowFileDropdown}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              availableFiles={availableFiles}
             />
 
             <textarea
-              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-[16px] text-zinc-900 placeholder-zinc-400 resize-none font-medium leading-tight h-18 md:h-auto"
-              rows="1" 
+              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-[16px] text-zinc-900 placeholder-zinc-600 resize-none font-medium leading-tight h-18 md:h-auto"
+              rows="1"
               style={{ minHeight: window.innerWidth < 768 ? '4.5rem' : 'auto' }}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={selectedFile ? "Search in file..." : "Ask anything..."}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
             />
-            
-            <button 
-              onClick={handleSend} 
-              disabled={!input.trim() || loading} 
-              className="p-3 md:p-4 bg-zinc-900 text-white rounded-full disabled:opacity-20 transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-lg hover:bg-black"
+
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || loading}
+              className="p-3 md:p-4 bg-black text-white rounded-full disabled:opacity-70 transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-lg hover:bg-black"
             >
               <Send size={20} />
             </button>

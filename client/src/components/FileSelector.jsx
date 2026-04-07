@@ -6,7 +6,7 @@ const FileSelector = ({ showFileDropdown, setShowFileDropdown, selectedFile, set
     <div className="relative">
       <button 
         onClick={() => setShowFileDropdown(!showFileDropdown)} 
-        className={`p-3 md:p-4 rounded-full transition-all flex items-center justify-center ${
+        className={`p-3 md:p-4 rounded-full transition-all cursor-pointer flex items-center justify-center ${
           selectedFile ? 'text-zinc-900 bg-zinc-100' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'
         }`}
       >
@@ -16,7 +16,7 @@ const FileSelector = ({ showFileDropdown, setShowFileDropdown, selectedFile, set
       {showFileDropdown && (
         <div className="absolute bottom-full left-0 mb-4 w-[85vw] md:w-80 bg-white border border-zinc-200 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 z-50">
           <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Knowledge Base</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Uploaded Files</span>
             <button onClick={() => setShowFileDropdown(false)}>
               <X size={14} className="text-zinc-400 hover:text-zinc-600"/>
             </button>
@@ -26,7 +26,7 @@ const FileSelector = ({ showFileDropdown, setShowFileDropdown, selectedFile, set
             <button 
               onClick={() => { setSelectedFile(null); setShowFileDropdown(false); }}
               className={`w-full text-left px-4 py-3 rounded-2xl text-sm flex items-center justify-between transition-all ${
-                !selectedFile ? 'bg-zinc-900 text-white shadow-md' : 'hover:bg-zinc-100 text-zinc-600'
+                !selectedFile ? 'bg-black/90 text-white shadow-md' : 'hover:bg-zinc-100 text-zinc-600'
               }`}
             >
               <div className="flex items-center gap-3"><Globe size={18} /> Global Search</div>
@@ -38,7 +38,7 @@ const FileSelector = ({ showFileDropdown, setShowFileDropdown, selectedFile, set
                 key={idx}
                 onClick={() => { setSelectedFile(file); setShowFileDropdown(false); }}
                 className={`w-full text-left px-4 py-3 rounded-2xl text-sm flex items-center justify-between transition-all ${
-                  selectedFile === file ? 'bg-zinc-900 text-white shadow-md' : 'hover:bg-zinc-100 text-zinc-600'
+                  selectedFile === file ? 'bg-black/90 text-white shadow-md' : 'hover:bg-zinc-100 text-zinc-600'
                 }`}
               >
                 <div className="flex items-center gap-3 truncate pr-4">

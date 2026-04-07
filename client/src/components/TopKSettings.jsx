@@ -1,49 +1,67 @@
-import {  Minus, Plus } from 'lucide-react';
+import React from 'react';
+import { Layers, Settings2, Sparkles } from 'lucide-react';
 
 const TopKSettings = ({ topK, setTopK, showSettings, setShowSettings }) => {
   return (
-    <div className="relative">
+    <div className="relative group">
+      
       <button 
         onClick={() => setShowSettings(!showSettings)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] md:text-[11px] font-bold tracking-widest transition-all ${showSettings ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' : 'bg-zinc-100 text-zinc-500 border-zinc-400 hover:border-zinc-400'}`}
+        className={`flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border transition-all duration-300 shadow-sm
+          ${showSettings 
+            ? 'bg-zinc-900 border-zinc-900 text-white ring-4 ring-zinc-100' 
+            : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900'
+          }`}
       >
-       
-        <span>Top Selection :</span> {topK}
+        
+        <div className="flex flex-col items-start leading-none">
+          
+          <span className="text-xs font-bold">{topK} {topK === 1 ? 'Pick' : 'Picks'}</span>
+        </div>
       </button>
 
+      {/* Popover Settings */}
       {showSettings && (
-        <div className="absolute bottom-full right-0 mb-3 w-36 md:w-40 bg-white border border-zinc-200 rounded-2xl shadow-xl p-3 md:p-4 animate-in fade-in slide-in-from-bottom-2 z-50">
-          <div className="flex flex-col items-center gap-3">
-            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Search Depth</span>
-            <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl p-1 w-full justify-between">
-              <button 
-                onClick={() => setTopK(prev => Math.max(1, prev - 1))} 
-                className="p-1 hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all active:scale-90"
-              >
-                <Minus size={14}/>
-              </button>
-              <input 
-                type="number" 
-                value={topK}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val)) setTopK(Math.max(1, Math.min(20, val)));
-                }}
-                className="w-8 text-center bg-transparent font-bold text-zinc-900 outline-none text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <button 
-                onClick={() => setTopK(prev => Math.min(20, prev + 1))} 
-                className="p-1 hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all active:scale-90"
-              >
-                <Plus size={14}/>
-              </button>
-            </div>
-            <div className="flex justify-between w-full px-1 text-[8px] font-bold text-zinc-400">
-              <span>FAST</span>
-              <span>DEEP</span>
+        <>
+         
+          <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+          
+          <div className="absolute bottom-full right-0 mb-4 w-56 bg-white border border-zinc-200 rounded-3xl shadow-2xl p-5 animate-in fade-in zoom-in-95 slide-in-from-bottom-4 z-50">
+            <div className="space-y-5">
+             
+
+              {/* Range Slider Container */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">Retrieval Limit</span>
+                  <span className="text-xl font-black text-zinc-900 leading-none">{topK}</span>
+                </div>
+                
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="20" 
+                  value={topK}
+                  onChange={(e) => setTopK(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-zinc-100 rounded-lg appearance-none cursor-pointer accent-zinc-900"
+                />
+
+                <div className="flex justify-between w-full text-[9px] font-black text-zinc-400 uppercase tracking-tighter">
+                  <div className="flex flex-col items-start">
+                
+                    <span className="font-medium">Fast</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    
+                    <span className="font-medium">Detailed</span>
+                  </div>
+                </div>
+              </div>
+
+            
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
