@@ -109,7 +109,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
                   {msg.metadata?.global_sources && (
                     <div className="pt-6 border-t border-zinc-100">
                       <div className="flex flex-col gap-2">
-                        <span className='text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1'>Sources</span>
+                        <span className='text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1'> Sources</span>
                         <div className="flex flex-wrap gap-2">
                           {msg.metadata.global_sources.split(',').map((source, idx) => (
                             <div key={idx} className="px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md shadow-sm">
