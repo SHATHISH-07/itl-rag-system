@@ -5,7 +5,7 @@ const TopKSettings = ({ topK, setTopK, showSettings, setShowSettings }) => {
     <div className="relative">
       <button 
         onClick={() => setShowSettings(!showSettings)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] md:text-[11px] font-bold tracking-widest transition-all ${showSettings ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400'}`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] md:text-[11px] font-bold tracking-widest transition-all ${showSettings ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' : 'bg-zinc-100 text-zinc-500 border-zinc-400 hover:border-zinc-400'}`}
       >
        
         <span>Top Selection :</span> {topK}
