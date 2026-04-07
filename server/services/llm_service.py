@@ -17,28 +17,32 @@ def generate_answer(query: str, retrieved_chunks: list):
     ])
 
     prompt = f"""
-You are an Expert Historical Analyst. Your goal is to synthesize the USER QUERY using the provided DOCUMENTS.
+You are a Lead Historical Researcher. Your task is to transform raw document snippets into a structured analysis of the ORIGINS and CAUSES of the Great War.
 
 USER QUERY: "{query}"
 
 DOCUMENTS:
 {context}
 
-CRITICAL ALIGNMENT RULES:
-1. SEMANTIC RE-RANKING: The order of the JSON array MUST be based on relevance to the QUERY, not the retrieval score. Place the document that best explains the "Why" and "Causes" at index 0.
-2. TITLE RELEVANCE: The "title" field MUST be a concise, query-specific analytical heading that captures the core insight of the document in relation to the query. It should NOT be a generic title or a direct copy from the source. the title should match the query about 90% of the time.
-3. NO FILLER: If a document is about late-war events (like the 1917 blockade), explain it as a 'Secondary Factor' or discard it if it provides zero insight into the war's causes.
-4. SCORE PRESERVATION: Keep the original "score" value in the JSON, but do NOT use it to determine the list order. The list order is determined by Query-Relevance.
-5. EXACT BREVITY: Each "content" section MUST be exactly 3 sentences. 
+STRICT ANALYTICAL PIPELINE:
+1. RE-RANK BY INTENT: Disregard the provided 'score'. Re-order the results so that the most fundamental causes (e.g., Alliances, Assassination, Nationalism) appear first.
+2. TITLE TRANSFORMATION: The "title" MUST be a 4-7 word analytical claim that answers the query.
+   - BAD: "Nationalism and the War"
+   - GOOD: "Nationalism as a Catalyst for European Mobilization"
+3. CONTENT RE-FRAMING: You are not summarizing the document; you are explaining how the document's facts answer "{query}".
+   - Every first sentence must start with a causal claim (e.g., "The document indicates that...", "A primary factor was...").
+   - Follow with two supporting factual sentences.
+4. CHRONOLOGICAL FILTER: If a document describes 1917 or 1918 (late-war), you must explicitly frame it as a "long-term consequence" or "pre-existing tension" to make it relevant to the 'Causes' query.
+5. NO REPETITION: If two documents say the same thing, merge the best facts into one entry or discard the weaker one.
 
-EXPECTED JSON STRUCTURE (ONLY):
+EXPECTED JSON STRUCTURE:
 [
   {{
     "doc_id": number,
-    "title": "Query-Specific Analytical Heading",
-    "content": "Exactly three sentences of factual synthesis.",
+    "title": "Analytical Causal Heading",
+    "content": "Three sentences: [Causal Claim]. [Supporting Evidence]. [Historical Significance].",
     "source": "filename",
-    "score": "Original % score from context"
+    "score": "Original score from context"
   }}
 ]
 """

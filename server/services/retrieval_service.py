@@ -12,7 +12,7 @@ from core.llm_client import client, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
-FINAL_THRESHOLD_GLOBAL = 0.35   # ✅ FIXED (was too high)
+FINAL_THRESHOLD_GLOBAL = 0.35  
 
 def safe_normalize(scores):
     if len(scores) == 0:
@@ -113,7 +113,7 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 7, offset: int
     for i in range(len(candidate_pool)):
         vec = v_norm[i]
         bm = bm_norm[i]
-        ce = ce_map.get(i, 0.2)   # ✅ FIX: default CE (not 0)
+        ce = ce_map.get(i, 0.2)  
 
         final_score = (ce * 0.65) + (bm * 0.20) + (vec * 0.15)
         candidate_pool[i]["score"] = round(float(final_score), 4)
@@ -124,7 +124,6 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 7, offset: int
         reverse=True
     )
 
-    # ✅ SAFETY: fallback if nothing passes threshold
     if not filtered:
         filtered = sorted(candidate_pool, key=lambda x: x["score"], reverse=True)[:limit]
 
