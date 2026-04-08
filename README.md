@@ -16,6 +16,8 @@ This project is an advanced Retrieval-Augmented Generation (RAG) system that ena
 
 It combines vector search, keyword retrieval, and reranking to produce highly relevant answers.
 
+---
+
 ## Key Features
 
 - Hybrid Retrieval (Vector + BM25)
@@ -25,6 +27,29 @@ It combines vector search, keyword retrieval, and reranking to produce highly re
 - Parallel File Ingestion
 - Semantic Chunking
 - Structured LLM Output
+
+---
+
+## Why This Project
+
+Traditional search systems fail to understand semantic meaning and context.  
+This project solves that by combining:
+
+- Dense vector search (semantic understanding)
+- Sparse keyword search (exact matching)
+- Cross-encoder reranking (precision)
+- Caching (performance)
+
+**Result:** Faster and more accurate responses over large document collections.
+
+---
+
+## Performance
+
+- File ingestion (1000+ chunks): ~1.3 minutes  
+- 8 files ingestion: ~8 minutes (parallel processing)  
+- Redis cache hit: ~instant response  
+- Hybrid retrieval optimized for low latency  
 
 ## End-to-End System Flow
 
@@ -56,14 +81,14 @@ This diagram represents the complete request lifecycle from user interaction to 
 ```mermaid
 flowchart LR
     subgraph Client
-        A[Frontend / User]
+        A[Frontend or User]
     end
 
-    subgraph API Layer
+    subgraph API_Layer
         B[FastAPI Server]
-        R1[/rag/query]
-        R2[/files/upload-files]
-        R3[/files/list-files]
+        R1[rag query API]
+        R2[upload files API]
+        R3[list files API]
     end
 
     subgraph Services
@@ -76,17 +101,18 @@ flowchart LR
     subgraph Storage
         G[Qdrant Vector DB]
         H[Redis Cache]
-        I[File Metadata Collection]
+        I[File Metadata]
     end
 
     subgraph Models
         J[Embedding Model]
         K[BM25]
         L[Cross Encoder]
-        M[LLM - Groq]
+        M[LLM Groq]
     end
 
     A --> B
+
     B --> R1
     B --> R2
     B --> R3
@@ -117,31 +143,31 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[User Sends Query] --> B[/rag/query API]
+    A[User Sends Query] --> B[rag query API]
 
-    B --> C{Redis Cache?}
+    B --> C{Cache Available}
 
-    C -->|Hit| D[Return Cached Response]
+    C -->|Yes| D[Return Cached Response]
 
-    C -->|Miss| E[Generate Embedding]
+    C -->|No| E[Generate Embedding]
 
-    E --> F[Qdrant Vector Search]
-    E --> G[BM25 Keyword Search]
+    E --> F[Vector Search]
+    E --> G[Keyword Search]
 
     F --> H[Merge Results]
     G --> H
 
-    H --> I[Cross Encoder Reranking]
+    H --> I[Reranking]
 
-    I --> J[Top Relevant Chunks]
+    I --> J[Top Chunks]
 
     J --> K[LLM Processing]
 
-    K --> L[Generate Structured JSON Response]
+    K --> L[Generate Response]
 
-    L --> M[Store in Redis Cache]
+    L --> M[Store Cache]
 
-    M --> N[Return Response to User]
+    M --> N[Return to User]
 ```
 
 ---
@@ -243,7 +269,7 @@ Generates structured JSON output:
             "content": "The success of a leader in the Great War was largely dependent on their ability to connect with the common man. ",
             "source": "HistoryOfTheGreatWar1914_1918.pdf",
             "score": "95%"
-        }....
+        }
     ],
     "metadata": {
         "status": "success",
@@ -302,46 +328,6 @@ RERANKING_CROSS_ENCODER=
 # Frontend (React + Tailwind CSS)
 
 A modern, responsive UI for interacting with the RAG backend.
-
----
-
-## Frontend Architecture Diagram
-
-```mermaid
-flowchart LR
-    A[User] --> B[React App]
-
-    subgraph UI Components
-        C[Sidebar]
-        D[Navbar]
-        E[ChatPage]
-        F[UploadPage]
-    end
-
-    subgraph Features
-        G[MessageList]
-        H[FileSelector]
-        I[TopK Settings]
-    end
-
-    subgraph API Layer
-        J[Axios API]
-    end
-
-    B --> C
-    B --> D
-    B --> E
-    B --> F
-
-    E --> G
-    E --> H
-    E --> I
-
-    E --> J
-    F --> J
-
-    J --> K[FastAPI Backend]
-```
 
 ---
 
