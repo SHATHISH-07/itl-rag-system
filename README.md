@@ -54,26 +54,40 @@ This project solves that by combining:
 ## End-to-End System Flow
 
 ```mermaid
-flowchart LR
-    A[User] --> B[React Frontend]
-    B --> C[FastAPI Backend]
+graph TD
+    %% Entry
+    Input((User Query)) --> PreProc[Query Normalization & Cleaning]
+    
+    %% Semantic Layer
+    PreProc --> Cache{Semantic Cache Check}
+    Cache -- Hit --> Format[Format JSON Response]
+    
+    %% Retrieval Layer
+    Cache -- Miss --> VectorGen[Vector Embedding Generation]
+    VectorGen --> ParallelSearch[Parallel Multi-Collection Retrieval]
+    ParallelSearch --> Dedup[Neural & Keyword Deduplication]
+    
+    %% Scoring Strategy
+    subgraph Hybrid_Scoring_Engine [Hybrid Ranking Engine]
+        Dedup --> InitialRank[Initial Rank: Neural 0.4 / Keyword 0.6]
+        InitialRank --> Selection[Top-K Candidate Selection]
+        Selection --> CrossRank[Cross-Encoder Neural Reranking]
+        CrossRank --> FinalWeight[Final Weighted Merge: 0.7 / 0.2 / 0.1]
+    end
+    
+    %% Quality Control
+    FinalWeight --> RelGate{Relevance Threshold Gate}
+    RelGate -- Rejected --> NullState[Generate 'Information Not Found']
+    RelGate -- Approved --> ContextSynth[LLM Contextual Synthesis]
+    
+    %% Exit
+    ContextSynth --> UpdateCache[Update Semantic Cache]
+    NullState --> UpdateCache
+    UpdateCache --> Output((Final Professional Analysis))
 
-    C --> D{Cache Available}
-
-    D -->|Hit| K[Response]
-    K --> B
-
-    D -->|Miss| E[Embedding Model]
-    E --> F[Qdrant Vector DB]
-    E --> G[BM25 Search]
-
-    F --> H[Hybrid Merge]
-    G --> H
-
-    H --> I[Cross Encoder]
-    I --> J[LLM]
-
-    J --> K
+    style Cache fill:#f8fafc,stroke:#64748b,stroke-width:2px
+    style RelGate fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+    style Hybrid_Scoring_Engine fill:#f1f5f9,stroke:#475569,stroke-dasharray: 5 5
 ```
 
 This diagram represents the complete request lifecycle from user interaction to final response generation.
@@ -81,62 +95,49 @@ This diagram represents the complete request lifecycle from user interaction to 
 ## Architecture Diagram
 
 ```mermaid
-flowchart LR
-    subgraph Client
-        A[Frontend or User]
+graph TB
+    subgraph Client_Experience [Presentation Layer: React]
+        UI[Chat & Upload Interface]
+        State[State Management / Typing Simulation]
     end
 
-    subgraph API_Layer
-        B[FastAPI Server]
-        R1[rag query API]
-        R2[upload files API]
-        R3[list files API]
+    subgraph Service_Orchestrator [Application Layer: FastAPI]
+        API_G[REST API Gateway]
+        Ingest_M[Ingestion Manager: Async Processing]
+        RAG_E[RAG Engine: Hybrid Retrieval Logic]
     end
 
-    subgraph Services
-        C[Retrieval Service]
-        D[RAG Pipeline]
-        E[LLM Service]
-        F[Ingestion Service]
+    subgraph Intelligence_Storage [Data & Knowledge Layer]
+        direction LR
+        RD[(Redis: Semantic Cache)]
+        QD[(Qdrant: Vector Database)]
+        MD[(Metadata Storage)]
     end
 
-    subgraph Storage
-        G[Qdrant Vector DB]
-        H[Redis Cache]
-        I[File Metadata]
+    subgraph Neural_Core [AI Models]
+        EMB[[Embedding Model]]
+        RER[[Cross-Encoder Reranker]]
+        LLM[[Generative LLM]]
     end
 
-    subgraph Models
-        J[Embedding Model]
-        K[BM25]
-        L[Cross Encoder]
-        M[LLM Groq]
-    end
+    %% Interaction Flows
+    UI <--> API_G
+    API_G --> Ingest_M
+    API_G --> RAG_E
 
-    A --> B
+    Ingest_M --> EMB
+    Ingest_M --> QD
+    Ingest_M --> MD
 
-    B --> R1
-    B --> R2
-    B --> R3
+    RAG_E <--> RD
+    RAG_E --> EMB
+    RAG_E --> QD
+    RAG_E --> RER
+    RAG_E --> LLM
 
-    R1 --> D
-    D --> C
-    D --> E
-
-    C --> H
-    C --> J
-    C --> G
-    C --> K
-    C --> L
-
-    E --> M
-
-    R2 --> F
-    F --> J
-    F --> G
-    F --> I
-
-    R3 --> I
+    style Client_Experience fill:#ffffff,stroke:#000,stroke-width:2px
+    style Service_Orchestrator fill:#f8fafc,stroke:#334155,stroke-width:2px
+    style Intelligence_Storage fill:#f1f5f9,stroke:#475569,stroke-dasharray: 5 5
 ```
 
 ---
@@ -144,32 +145,40 @@ flowchart LR
 ## User Flow Diagram
 
 ```mermaid
-flowchart TD
-    A[User Sends Query] --> B[rag query API]
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant F as React Frontend
+    participant B as FastAPI Backend
+    participant D as Qdrant/Redis
 
-    B --> C{Cache Available}
+    Note over U, D: Knowledge Ingestion Phase
+    U->>F: Uploads PDF/TXT
+    F->>B: POST /upload-files (Multipart)
+    B->>B: Extract & Chunk Text
+    B->>B: Generate Embeddings (Batch 64)
+    B->>D: Upsert Points & Metadata
+    B-->>F: Ingestion Success (Time Taken)
 
-    C -->|Yes| D[Return Cached Response]
-
-    C -->|No| E[Generate Embedding]
-
-    E --> F[Vector Search]
-    E --> G[Keyword Search]
-
-    F --> H[Merge Results]
-    G --> H
-
-    H --> I[Reranking]
-
-    I --> J[Top Chunks]
-
-    J --> K[LLM Processing]
-
-    K --> L[Generate Response]
-
-    L --> M[Store Cache]
-
-    M --> N[Return to User]
+    Note over U, D: Retrieval & Chat Phase
+    U->>F: Submits Query (with Filter/TopK)
+    F->>B: POST /rag/query
+    B->>D: Check Redis Cache
+    alt Cache Miss
+        D-->>B: No Cache
+        B->>D: Hybrid Search (Vector + BM25)
+        B->>B: Rerank Top 20 Results
+        B->>B: Apply Threshold (0.38)
+    else Cache Hit
+        D-->>B: Return Cached Results
+    end
+    B-->>F: JSON (Response + Sources)
+    
+    Note over F: simulateTyping Effect
+    loop For each character/section
+        F->>F: Update messages state (Random Delay)
+    end
+    F-->>U: Renders Professional Analysis
 ```
 
 ---
@@ -334,26 +343,6 @@ A modern, responsive UI for interacting with the RAG backend.
 ---
 
 ## Frontend User Flow
-
-```mermaid
-flowchart TD
-    A[User Opens App] --> B[Select Chat or Upload]
-
-    B -->|Upload| C[Upload Files]
-    C --> D[Send to Backend]
-    D --> E[Show Upload Status]
-
-    B -->|Chat| F[Enter Query]
-    F --> G[Select File Optional]
-    G --> H[Adjust Top K]
-    H --> I[Send Request]
-
-    I --> J[Receive Response]
-    J --> K[Typing Effect]
-    K --> L[Render Messages]
-```
-
----
 
 ## Tech Stack (Frontend)
 
