@@ -40,7 +40,7 @@ const TopKSettings = ({ topK, setTopK, showSettings, setShowSettings }) => {
                 <input 
                   type="range" 
                   min="1" 
-                  max="20" 
+                  max="10" 
                   value={topK}
                   onChange={(e) => setTopK(parseInt(e.target.value))}
                   className="w-full h-1.5 bg-zinc-100 rounded-lg appearance-none cursor-pointer accent-zinc-900"

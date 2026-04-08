@@ -1,7 +1,6 @@
 import logging
 import json
 import numpy as np
-import redis
 from concurrent.futures import ThreadPoolExecutor
 from rank_bm25 import BM25Okapi
 from db.qdrant_db import qdrant_client

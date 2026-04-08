@@ -13,10 +13,6 @@ QDRANT_BATCH_SIZE = 256
 METADATA_COLLECTION = "file_metadata" 
 
 def record_file_metadata(filename: str):
-    """
-    Registers the filename in a dedicated collection so the 
-    frontend dropdown can list it.
-    """
     try:
         collections = [col.name for col in qdrant_client.get_collections().collections]
         
