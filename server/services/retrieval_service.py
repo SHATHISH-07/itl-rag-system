@@ -44,7 +44,6 @@ def retrieve(query: str, filter_keyword: str = None, limit: int = 7):
 
     if not all_results: return [], 0
 
-    # Deduplication & Scoring logic...
     seen = set()
     dedup = [r for r in all_results if not (r.get("text") in seen or seen.add(r.get("text")))]
     

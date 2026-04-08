@@ -61,9 +61,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
 @router.get("/list-files")
 async def list_files():
-    """Returns a list of all unique filenames currently in the system."""
     try:
-        # Scroll retrieves points from the metadata collection
         results = qdrant_client.scroll(
             collection_name="file_metadata",
             limit=100,

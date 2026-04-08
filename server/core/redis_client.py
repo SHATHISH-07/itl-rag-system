@@ -14,7 +14,6 @@ def get_redis_client():
             decode_responses=True
         )
 
-        # Test connection
         client.ping()
         logger.info("Redis connected ")
 
