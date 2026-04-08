@@ -58,7 +58,10 @@ flowchart LR
     A[User] --> B[React Frontend]
     B --> C[FastAPI Backend]
 
-    C --> D[Redis Cache]
+    C --> D{Cache Available}
+
+    D -->|Hit| K[Response]
+    K --> B
 
     D -->|Miss| E[Embedding Model]
     E --> F[Qdrant Vector DB]
@@ -70,8 +73,7 @@ flowchart LR
     H --> I[Cross Encoder]
     I --> J[LLM]
 
-    J --> K[Response]
-    K --> B
+    J --> K
 ```
 
 This diagram represents the complete request lifecycle from user interaction to final response generation.
