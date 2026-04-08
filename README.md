@@ -342,12 +342,12 @@ flowchart TD
     D --> E[Show Upload Status]
 
     B -->|Chat| F[Enter Query]
-    F --> G[Select File (Optional)]
-    G --> H[Adjust Top-K]
+    F --> G[Select File Optional]
+    G --> H[Adjust Top K]
     H --> I[Send Request]
 
     I --> J[Receive Response]
-    J --> K[Simulated Typing Effect]
+    J --> K[Typing Effect]
     K --> L[Render Messages]
 ```
 
