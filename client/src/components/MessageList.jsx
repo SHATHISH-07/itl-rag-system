@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from 'react';
-import { User, BotMessageSquare, ChevronRight, Layout } from 'lucide-react';
+import { User, BotMessageSquare, ChevronRight } from 'lucide-react';
 
 const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, loading }) => {
   const renderContent = (text) => {
@@ -68,7 +67,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
 
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col md:flex-row gap-3 md:gap-8 ${msg.role === 'user' ? 'md:flex-row-reverse items-end md:items-start' : 'items-start'}`}>
-            <div className={`w-10 h-10 md:w-12 md:h-12 flex shrink-0 items-center justify-center rounded-xl border-2 shadow-sm ${msg.role === 'user' ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-zinc-900 border-zinc-900 text-white'
+            <div className={`w-10 h-10 md:w-12 md:h-12 flex shrink-0 items-center justify-center rounded-xl border-2 shadow-sm ${msg.role === 'user' ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-gray-100 border-gray-300 text-black/70'
               }`}>
               {msg.role === 'user' ? <User size={20} /> : <BotMessageSquare size={20} />}
             </div>
