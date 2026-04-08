@@ -110,25 +110,18 @@ const ChatPage = () => {
     return { label: 'Low', color: 'text-zinc-500 bg-zinc-100 border-zinc-200' };
   };
 
-  const renderContent = (content) => {
-    if (!content) return null;
-    return <p className="whitespace-pre-wrap">{content}</p>;
-  };
-
   return (
     <div className="flex flex-col h-screen font-sans text-zinc-900 overflow-hidden relative w-full">
-      <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
-        <MessageList
-          messages={messages}
-          renderContent={renderContent}
-          getRelevance={getRelevance}
-          scrollRef={scrollRef}
-          chatContainerRef={chatContainerRef}
-          loading={loading}
-        />
-      </div>
+      {/* Container wraps MessageList and provides the scroll context */}
+      <MessageList
+        messages={messages}
+        getRelevance={getRelevance}
+        scrollRef={scrollRef}
+        chatContainerRef={chatContainerRef}
+        loading={loading}
+      />
 
-      <footer className="sticky bottom-10 w-full z-40 px-4 md:px-6 lg:px-10 pb-6 md:pb-10 pointer-events-none">
+      <footer className="sticky bottom-10 left-0 right-0 w-full z-40 px-4 md:px-6 lg:px-10 pb-6 md:pb-10 pointer-events-none">
         <div className="max-w-3xl mx-auto w-full pointer-events-auto">
 
           <div className="flex justify-between items-end px-2 mb-2 gap-2">
@@ -159,7 +152,7 @@ const ChatPage = () => {
             <TopKSettings topK={topK} setTopK={setTopK} showSettings={showSettings} setShowSettings={setShowSettings} />
           </div>
 
-          <div className="bg-white border border-zinc-300 md:border-2 rounded-3xl md:rounded-[2.5rem] p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-black/80">
+          <div className="bg-white border border-zinc-300 md:border-2 rounded-3xl md:rounded-[2.5rem] p-1.5 md:p-2 flex items-center gap-1 transition-all focus-within:border-black/80 shadow-xl">
             <FileSelector
               showFileDropdown={showFileDropdown}
               setShowFileDropdown={setShowFileDropdown}
@@ -169,9 +162,8 @@ const ChatPage = () => {
             />
 
             <textarea
-              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-[16px] text-zinc-900 placeholder-zinc-600 resize-none font-medium leading-tight h-18 md:h-auto"
+              className="flex-1 bg-transparent border-none outline-none py-3 px-1 text-sm md:text-[16px] text-zinc-900 placeholder-zinc-600 resize-none font-medium leading-tight"
               rows="1"
-              style={{ minHeight: window.innerWidth < 768 ? '4.5rem' : 'auto' }}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={selectedFile ? "Search in file..." : "Ask anything..."}

@@ -1,6 +1,19 @@
+import React, { useEffect } from 'react';
 import { User, BotMessageSquare, ChevronRight } from 'lucide-react';
 
 const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, loading }) => {
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      // Use scrollTo instead of scrollIntoView to prevent parent layout shifts
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages, loading]);
+
   const renderContent = (text) => {
     if (!text) return null;
     const segments = text.split(/(?<=[.!?])\s+/);
@@ -51,8 +64,11 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
   };
 
   return (
-    <main ref={chatContainerRef} className="flex-1 overflow-y-auto bg-white scroll-smooth">
-      <div className="max-w-4xl mx-auto px-4 py-6 md:px-8 md:py-12 space-y-10 md:space-y-16 h-full">
+    <main 
+      ref={chatContainerRef} 
+      className="flex-1 overflow-y-auto bg-white scroll-smooth"
+    >
+      <div className="max-w-210 mx-auto px-4 pt-5 md:px-8 space-y-10 md:space-y-16">
 
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-in fade-in zoom-in duration-700 pt-20">
@@ -96,7 +112,7 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
 
                           {section.source && (
                             <div className="inline-flex items-center gap-2 px-2 py-1 bg-zinc-50 border border-zinc-200 rounded-md">
-                              <span className='text-[9px] font-bold text-zinc-500  tracking-tight'>Source:</span>
+                              <span className='text-[9px] font-bold text-zinc-500 tracking-tight'>Source:</span>
                               <span className="text-[9px] font-bold text-zinc-700 truncate max-w-37.5">{section.source}</span>
                             </div>
                           )}
@@ -136,7 +152,8 @@ const MessageList = ({ messages, getRelevance, scrollRef, chatContainerRef, load
             </div>
           </div>
         )}
-        <div ref={scrollRef} className="h-4" />
+        {/* Helper div for spacing at bottom */}
+        <div ref={scrollRef} className="h-20 md:h-32" />
       </div>
     </main>
   );
