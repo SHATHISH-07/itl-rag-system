@@ -85,7 +85,7 @@ graph TD
     NullState --> UpdateCache
     UpdateCache --> Output((Final Professional Analysis))
 
-    style Cache fill:#000000,stroke:#64748b,stroke-width:2px
+    style Cache fill:#f8fafc,stroke:#64748b,stroke-width:2px
     style RelGate fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
     style Hybrid_Scoring_Engine fill:#f1f5f9,stroke:#475569,stroke-dasharray: 5 5
 ```
