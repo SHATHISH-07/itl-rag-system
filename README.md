@@ -167,7 +167,7 @@ sequenceDiagram
     alt Cache Miss
         D-->>B: No Cache
         B->>D: Hybrid Search (Vector + BM25)
-        B->>B: Rerank Top 20 Results
+        B->>B: Rerank Top Results
         B->>B: Apply Threshold (0.38)
     else Cache Hit
         D-->>B: Return Cached Results
